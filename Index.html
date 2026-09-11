@@ -1,0 +1,884 @@
+<meta charset="utf-8">
+<title>사업계획서 · 결과보고서 작성 도구</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
+<style>
+  :root{
+    --ink:#1B2430; --ink-2:#4A5765; --ink-3:#7E8A97;
+    --line:#D7DDE4; --line-soft:#E8ECF0;
+    --field:#FFFFFF; --chrome:#EDF0F3; --sheet:#FFFFFF;
+    --accent:#5B3E8E; --accent-soft:#EFE9F7; --accent-line:#B9A5D8;
+    --warn:#9A3B2F; --ok:#2E6B54;
+    --ui:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  }
+  body.report{--accent:#1F6E63;--accent-soft:#E4F1EE;--accent-line:#9CC6BE}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{font-family:var(--ui);background:var(--chrome);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit}
+
+  .bar{position:sticky;top:0;z-index:40;background:var(--sheet);border-bottom:1px solid var(--line);
+       padding:10px 18px calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .bar h1{font-size:14.5px;font-weight:700;margin:0}
+  .bar h1 span{display:block;font-size:11.5px;font-weight:500;color:var(--ink-3)}
+  .ctrl{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+  .acts{display:flex;gap:6px;flex-wrap:wrap}
+  .acts .btn{flex:0 0 auto}
+  .spacer{flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex-shrink:0}
+  .seg button{border:none;background:var(--sheet);color:var(--ink-2);padding:8px 14px;font-size:12.5px;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button.on.neutral{background:var(--ink-2)}
+  .status{font-size:12px;color:var(--ink-3);white-space:nowrap}
+  .status.on{color:var(--ok)}
+  .status.dirty{color:var(--warn)}
+  .btn{border:1px solid var(--line);background:var(--sheet);color:var(--ink-2);padding:8px 12px;border-radius:6px;font-size:12.5px;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.sm{padding:6px 10px;font-size:11.5px}
+  @media (hover:hover){
+    .btn:hover{background:#F5F7F9;border-color:#C3CBD4}
+    .btn.pri:hover{filter:brightness(.9)}
+    .btn.danger:hover{color:var(--warn);border-color:#DDBAB4}
+    .del:hover{color:var(--warn);background:#FBF0EE}
+    .add:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft)}
+  }
+
+  .wrap{display:grid;grid-template-columns:minmax(400px,45%) 1fr;height:calc(100dvh - 62px)}
+  .pane{overflow-y:auto;height:100%;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .form{background:var(--chrome);padding:18px 18px 120px}
+  .prev{background:#E3E7EB;padding:26px 20px 90px;border-left:1px solid var(--line)}
+
+  details.card{background:var(--sheet);border:1px solid var(--line);border-radius:9px;margin-bottom:14px;overflow:hidden}
+  details.card > summary{display:flex;align-items:baseline;gap:9px;padding:12px 15px;cursor:pointer;list-style:none;border-bottom:1px solid var(--line-soft)}
+  summary::-webkit-details-marker{display:none}
+  .sec-no{font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 6px;white-space:nowrap}
+  .sec-t{font-size:13.5px;font-weight:650}
+  .sec-hint{font-size:11.5px;color:var(--ink-3);margin-left:auto;text-align:right}
+  .body{padding:14px 15px 16px}
+
+  .row{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:start;margin-bottom:9px}
+  .row > label{font-size:12.5px;color:var(--ink-2);padding-top:8px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  h4.fl{font-size:12.5px;margin:18px 0 7px;color:var(--ink-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h4.fl:first-child{margin-top:0}
+
+  input[type=text],textarea,select{width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--field)}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea{resize:vertical;line-height:1.5}
+  input.num{text-align:right;font-variant-numeric:tabular-nums}
+
+  table.edit{width:100%;border-collapse:collapse}
+  table.edit th{font-size:11.5px;font-weight:600;color:var(--ink-3);text-align:left;padding:0 4px 6px}
+  table.edit td{padding:2px 3px;vertical-align:top}
+  table.edit td input,table.edit td textarea{padding:6px 7px;font-size:12.5px}
+  .del{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:6px 4px;border-radius:4px}
+  .del:hover{color:var(--warn);background:#FBF0EE}
+  .add{margin-top:8px;border:1px dashed var(--line);background:none;color:var(--ink-2);width:100%;padding:7px;border-radius:6px;font-size:12.5px;cursor:pointer}
+  .add:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft)}
+  .btn2{display:flex;gap:6px}
+  .sum{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:9px 11px;background:var(--accent-soft);border-radius:6px;font-size:13px}
+  .sum b{font-variant-numeric:tabular-nums;font-size:14px;color:var(--accent)}
+  .hint{font-size:11.5px;color:var(--ink-3);margin:0 0 10px}
+  .shared{display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:var(--ink-2);background:#EEF1F4;border-radius:4px;padding:2px 7px}
+  .notice{border:1px solid var(--line);background:#F7F9FA;border-radius:7px;padding:11px 13px;font-size:12.5px;color:var(--ink-2);margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .notice b{color:var(--ink)}
+
+  .blk{border:1px solid var(--line);border-radius:7px;padding:10px 11px;margin-bottom:11px;background:#FCFDFD}
+  .blk-h{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+  .blk-t{flex:1;font-weight:650}
+  .blk-h select{width:auto;padding:6px 8px;font-size:12.5px}
+  .colh{display:flex;gap:2px;align-items:center}
+  .colh input{padding:5px 6px;font-size:11.5px;font-weight:600;background:#F5F7F9}
+  .colh .del{font-size:12px;padding:3px}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+  .badge.same{background:#EEF1F4;color:var(--ink-3)}
+  .badge.diff{background:var(--accent-soft);color:var(--accent)}
+
+  .brow{border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin-bottom:9px;background:#FCFDFD}
+  .bline{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .bname{flex:1;font-weight:600}
+  .bcalc{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
+  .bl{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+  .btag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+  .btag.p{background:#EEF1F4;color:var(--ink-2)}
+  .btag.a{background:var(--accent-soft);color:var(--accent)}
+  .bx{color:var(--ink-3);font-size:12px}
+  .bp{width:92px}.bq{width:52px}.bu{width:50px;padding:6px}
+  .bcalc input{padding:6px 7px;font-size:12.5px}
+  .chk{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-3);white-space:nowrap;cursor:pointer}
+  .chk input{accent-color:var(--accent);margin:0}
+  .bout{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-top:1px dashed var(--line);padding-top:7px}
+  .bbasis{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .bamt{font-size:13.5px;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+
+  .sheet{max-width:780px;margin:0 auto;background:var(--sheet);padding:52px 56px 64px;box-shadow:0 1px 2px rgba(27,36,48,.10),0 12px 30px rgba(27,36,48,.09);font-size:13.2px;line-height:1.72}
+  .doc-kicker{font-size:12px;color:var(--accent);font-weight:600;margin:0 0 6px}
+  .doc-title{font-size:25px;font-weight:750;letter-spacing:-.02em;line-height:1.3;margin:0 0 4px}
+  .doc-sub{font-size:14px;color:var(--ink-2);margin:0 0 16px;font-weight:500}
+  .doc-meta{display:flex;gap:22px;font-size:12px;color:var(--ink-3);border-top:2px solid var(--accent);border-bottom:1px solid var(--line);padding:9px 0;margin-bottom:26px}
+  h2.dh{font-size:15.5px;font-weight:700;margin:32px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--ink)}
+  h3.dh3{font-size:13.4px;font-weight:650;margin:20px 0 8px}
+  h3.dh3::before{content:"○ ";color:var(--accent)}
+  h4.dh4{font-size:12.6px;font-weight:650;margin:14px 0 6px;color:var(--ink-2)}
+  ul.d{margin:0 0 4px;padding-left:17px} ul.d li{margin-bottom:3px}
+  ol.d{margin:0;padding-left:19px}
+  table.doc{width:100%;border-collapse:collapse;font-size:12.4px;margin:4px 0 6px}
+  table.doc th{background:var(--accent-soft);border:1px solid var(--line);padding:7px 9px;font-weight:650;text-align:left}
+  table.doc td{border:1px solid var(--line);padding:7px 9px;vertical-align:top}
+  table.doc td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.doc tr.total td{background:var(--accent-soft);font-weight:700}
+  .cap{display:block;font-size:11px;color:var(--ink-3);margin-bottom:1px}
+  .unit{text-align:right;font-size:11.5px;color:var(--ink-3);margin:0 0 3px}
+  .callout{border-left:3px solid var(--accent-line);background:#FAFAFC;padding:9px 13px;font-size:12.2px;color:var(--ink-2);margin:8px 0 0}
+  .invite{background:#F8F8FB;border:1px solid var(--line-soft);padding:20px 24px;white-space:pre-wrap;line-height:1.85;font-size:13px}
+  .empty{color:#B4BDC6}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:var(--ink);color:#fff;padding:9px 17px;border-radius:7px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:99}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .tabs{display:none}
+
+  /* 가로로 넘칠 수 있는 표는 스크롤 */
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
+  .tblwrap > table.edit{min-width:460px}
+  .tblwrap > table.doc{min-width:520px}
+
+  /* ── 터치 기기: 탭 영역 넓히고 iOS 자동 확대 방지 ── */
+  @media (pointer:coarse){
+    input[type=text],textarea,select{font-size:16px;padding:9px 10px}
+    table.edit td input,table.edit td textarea,.bcalc input,.colh input{font-size:16px}
+    .btn,.seg button{padding:11px 14px;font-size:13.5px}
+    .btn.sm{padding:9px 12px;font-size:12.5px}
+    .del{min-width:40px;min-height:40px;font-size:19px}
+    .add{padding:12px;font-size:13.5px}
+    .chk{padding:6px 2px}
+    .chk input{width:20px;height:20px}
+    details.card > summary{padding:15px}
+    .bp{width:110px}.bq{width:64px}.bu{width:64px}
+    .colh input{padding:8px 7px}
+  }
+
+  /* ── 태블릿·모바일: 위아래로 쌓고 작성/미리보기 전환 ── */
+  @media (max-width:1200px){
+    html,body{height:auto}
+    .wrap{grid-template-columns:1fr;height:auto}
+    .pane{height:auto;overflow:visible}
+    .prev{border-left:none;border-top:1px solid var(--line);padding:20px 14px 80px}
+    .sheet{padding:32px 26px 44px;max-width:none}
+    .bar{padding:9px 14px}
+    .bar h1{flex:1;min-width:150px}
+    .bar h1 span{display:none}
+    .ctrl{flex:0 0 auto}
+    .acts{order:4;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap}
+    .tabs{order:3;display:flex;width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+    .tabs button{flex:1;border:none;background:var(--sheet);color:var(--ink-2);padding:11px;font-size:13.5px;cursor:pointer;font-family:inherit;touch-action:manipulation}
+    .tabs button+button{border-left:1px solid var(--line)}
+    .tabs button.on{background:var(--accent);color:#fff}
+    .form,.prev{display:none}
+    body.t-form .form{display:block}
+    body.t-prev .prev{display:block}
+  }
+
+  /* ── 좁은 화면(세로 아이패드·휴대폰) ── */
+  @media (max-width:760px){
+    .bar{padding:8px 12px;gap:8px}
+    .bar h1{display:none}
+    .ctrl{width:100%;flex:1 1 100%}
+    .seg{flex:1}
+    .seg button{flex:1;padding:10px 6px;font-size:12.5px;text-align:center}
+    .status{font-size:11px}
+    .acts{gap:5px}
+    .acts .btn{padding:9px 10px;font-size:12.5px}
+    .form{padding:14px 12px 90px}
+    .sheet{padding:24px 18px 36px;font-size:13px}
+    .doc-title{font-size:21px}
+    .row{grid-template-columns:1fr;gap:4px}
+    .row > label{padding-top:0;font-weight:600}
+    .grid2{grid-template-columns:1fr}
+    .doc-meta{flex-wrap:wrap;gap:6px 16px}
+    .blk-h{flex-wrap:wrap}
+    .blk-t{flex:1 0 100%;margin-bottom:4px}
+    .bcalc{gap:5px}
+    .notice{font-size:12px}
+  }
+
+  @media print{
+    @page{size:A4;margin:16mm 15mm}
+    .bar,.form,.tabs,.toast{display:none !important}
+    body{background:#fff}
+    .wrap{display:block;height:auto} .pane{overflow:visible;height:auto}
+    .prev{background:#fff;padding:0;border:none}
+    .sheet{box-shadow:none;max-width:none;padding:0;font-size:10.5pt}
+    h2.dh{page-break-after:avoid} table.doc tr{page-break-inside:avoid}
+    .tblwrap{overflow:visible !important;margin:0}
+    .tblwrap > table.doc{min-width:0 !important}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+
+<div class="bar">
+  <h1>마포 사업문서 작성 도구<span>마포구 사회적경제통합지원센터</span></h1>
+  <div class="ctrl">
+    <div class="seg" id="seg">
+      <button id="t-common" onclick="setTab('common')">공통 정보</button>
+      <button id="t-plan" onclick="setTab('plan')">사업계획서</button>
+      <button id="t-report" onclick="setTab('report')">결과보고서</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="status" id="status">불러오는 중</div>
+  </div>
+  <div class="acts">
+    <button class="btn" onclick="dlData()">사업파일 저장</button>
+    <button class="btn" onclick="document.getElementById('fin').click()">불러오기</button>
+    <button class="btn" onclick="copyDoc()">문서 복사</button>
+    <button class="btn" onclick="dlWord()">워드로 저장</button>
+    <button class="btn danger" onclick="resetAll()">기본값</button>
+    <button class="btn pri" onclick="window.print()">인쇄 / PDF</button>
+  </div>
+  <input type="file" id="fin" accept=".json,application/json" style="display:none" onchange="loadFile(this)">
+  <div class="tabs">
+    <button id="p-form" onclick="pane('form')">작성</button>
+    <button id="p-prev" onclick="pane('prev')">미리보기</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="pane form" id="form"></div>
+  <div class="pane prev"><div class="sheet" id="sheet"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 유틸 ================= */
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nl  = s => esc(s).replace(/\n/g,'<br>');
+const num = v => Number(String(v??'').replace(/[^0-9.-]/g,''))||0;
+const won = n => (num(n)).toLocaleString('ko-KR');
+const val = (s,ph) => s && String(s).trim() ? nl(s) : '<span class="empty">'+ph+'</span>';
+const lines = t => String(t||'').split('\n').filter(x=>x.trim());
+const cp = o => JSON.parse(JSON.stringify(o));
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('show'),1900);}
+function pane(w){
+  document.body.classList.remove('t-form','t-prev');document.body.classList.add('t-'+w);
+  const f=document.getElementById('p-form'),v=document.getElementById('p-prev');
+  if(f&&v){f.className=w==='form'?'on':'';v.className=w==='prev'?'on':'';}
+  window.scrollTo(0,0);
+}
+
+function emptyCalc(){return {p:'',f:[{v:'',u:''},{v:'',u:''},{v:'',u:''}],manual:false,c:'',amt:''};}
+function calc(p,f){const o=emptyCalc();o.p=String(p);(f||[]).forEach((x,i)=>o.f[i]={v:String(x[0]),u:x[1]});return o;}
+function calcCell(r){
+  if(!r)return{amt:0,basis:''};
+  if(r.manual)return{amt:num(r.amt),basis:r.c||''};
+  const price=num(r.p);
+  const fs=(r.f||[]).filter(f=>f&&String(f.v).trim()!==''&&num(f.v)!==0);
+  const amt=fs.reduce((s,f)=>s*num(f.v),price);
+  let basis=price?price.toLocaleString('ko-KR')+'원':'';
+  fs.forEach(f=>{basis+=(basis?' × ':'')+num(f.v).toLocaleString('ko-KR')+(f.u||'');});
+  return {amt:Math.round(amt),basis};
+}
+
+/* ================= 데이터 ================= */
+function seed(){return {
+  tab:'plan', mode:'plan',
+
+  common:{
+    kicker:"2026 마포돌봄캠퍼스 전문가 과정",
+    title:"돌봄통합지원법의 현재, 민간의 역할과 과제",
+    target:"마포 지역돌봄회 임직원 50명 내외",
+    period:"2026.08.20. ~ 2026.09.23.",
+    writer:"이동은",
+    writeDate:"2026. 8. 20",
+    org:"마포구 사회적경제통합지원센터",
+    background:[
+      "마포구는 서울시 자치구 중 사회적경제 기업 밀집도가 높은 지역으로, 협동조합·사회적기업 등 다양한 돌봄 주체가 활동하고 있음.",
+      "2025년 마포돌봄포럼 6회를 통해 마포지역돌봄회가 출범하였으나, 법·제도 변화에 대응하는 공통의 이해 기반은 아직 부족함.",
+      "「의료·요양 등 지역 돌봄의 통합지원에 관한 법률」 시행 6개월을 맞아 민간 돌봄 주체의 역할을 점검하는 공통교육이 필요함."
+    ],
+    purpose:[
+      "「의료·요양 등 지역 돌봄의 통합지원에 관한 법률」 시행 6개월을 맞아 법의 취지와 현재 이행 상황을 점검한다.",
+      "지역 돌봄 현장에서 민간 주체가 수행해야 할 역할과 당면 과제를 공유하고, 마포 지역돌봄회 차원의 대응 방향을 모색한다.",
+      "2025년 마포돌봄포럼에서 제기된 인력 부족·야간/주말 공백 등 현장 의제를 법·제도 차원의 논의로 확장한다."
+    ],
+    account:{src:"보조금",gwan:"사업비",hang:"마포돌봄캠퍼스",mok:"전문가 과정",semok:"공통교육 운영"},
+    budget:[
+      {a:"강사료",d:"양원석 푸른복지사무소장",pl:calc(240000,[[2,'시간'],[1,'명']]),ac:emptyCalc()},
+      {a:"홍보비(웹자보)",d:"디자인 외주",pl:calc(300000,[[1,'식']]),ac:emptyCalc()},
+      {a:"진행비(자료집)",d:"인쇄",pl:calc(7920,[[50,'부']]),ac:emptyCalc()},
+      {a:"진행비(다과)",d:"지역 사회적경제기업 이용",pl:calc(4000,[[50,'명'],[1,'회']]),ac:emptyCalc()}
+    ],
+    kpi:[
+      {a:"정량",b:"참여자 명부(서명부) 집계 — 참여인원",c:"50명",d:""},
+      {a:"정량",b:"참여자 명부 기준 참여기관 수 집계",c:"12개소",d:""},
+      {a:"정량",b:"성과물 보관 목록 확인(강의자료·명부·사진)",c:"3건",d:""},
+      {a:"정성",b:"참여자 만족도 설문(5점 척도) 및 질의응답 기록 분석",c:"만족도 4.0 이상",d:""}
+    ],
+    outputs:[
+      {a:"강의자료",b:"돌봄통합지원법 강의자료",c:"1부",d:"",e:""},
+      {a:"참여자명부",b:"참여자 명부(서명부)",c:"1부",d:"",e:""},
+      {a:"사진",b:"과정 진행사진",c:"1식",d:"",e:""}
+    ],
+    content:[
+      {t:"프로그램",type:"table",cols:["시 간","구 분","내 용","담 당"],w:["17%","14%","auto","20%"],rows:[
+        ["14:30-14:50","사전준비","공간 세팅, 빔프로젝터·노트북·음향 점검","센터"],
+        ["14:50-15:00","접수","참여자 맞이 및 접수, 자료집 배부","센터"],
+        ["15:00-15:10","오프닝","내외빈 소개 및 인사, 과정 취지 소개","센터장"],
+        ["15:10-16:20","강의","돌봄통합지원법의 현재, 민간의 역할과 과제\n- 법 제정 배경과 주요 내용\n- 시행 6개월, 무엇이 달라졌나\n- 지역 돌봄 전달체계 내 민간의 위치\n- 민간 주체의 과제와 준비사항","양원석 소장 ┃ 푸른복지사무소"],
+        ["16:20-16:30","쉬는시간","단체사진 촬영","센터"],
+        ["16:30-16:55","질의응답·토론","참여자 질의응답 / 마포 지역 적용 방안 플로어 토론","참석자 전원"],
+        ["16:55-17:00","마무리","만족도 조사, 향후 일정 안내, 뒷정리","이동은"]
+      ],text:"",note:""},
+      {t:"진행계획",type:"table",cols:["일 정","구 분","내 용","담당자"],w:["14%","16%","auto","17%"],rows:[
+        ["8/20","기획","사업계획(안) 작성, 강사 섭외, 장소 섭외","이동은"],
+        ["8/25","홍보물 제작","웹자보, 신청 링크(QR) 개설, 현수막·배너","이동은"],
+        ["8/28","사업홍보","웹자보 배포(지역돌봄회 단톡방·메일), 보도자료","이동은"],
+        ["8/28~9/14","참여자 모집","온라인 신청 접수(QR/링크)","이동은"],
+        ["9/2","개별 안내","기관별 개별 안내 및 참석 독려 (개최 2주 전)","김은아"],
+        ["9/7","내외빈 초대","구·의회·유관기관 초대 안내","김은아"],
+        ["9/9~9/15","사전준비","자료집 제작(50부), 강의자료 점검, 다과·물품 준비","이동은, 김은아"],
+        ["9/14","리마인더","신청자 대상 리마인더 문자·메시지 발송","김은아"],
+        ["9/16","진행","행사장 세팅, 접수 및 내빈 안내, 촬영","이동은, 김은아"],
+        ["9/17~9/23","결과보고","평가회의, 결과 취합, 내부기안","이동은"]
+      ],text:"",note:"2025년 마포돌봄포럼 결과보고서 제언사항(목표 인원 대비 미달)을 반영하여, 개최 2주 전 개별 기관 안내와 개최 2일 전 리마인더 발송을 명시함."},
+      {t:"참여대상(안)",type:"table",cols:["구분","기관","비고"],w:["22%","auto","16%"],rows:[
+        ["통합돌봄 공동사업단","마포의료복지사회적협동조합, 울림두레돌봄사회적협동조합, 마포돌봄사회적협동조합, 마포구고용복지지원센터","우선 안내"],
+        ["지역기반 돌봄 단체","성산종합사회복지관, 새봄건강돌봄센터, 마포지역자활센터, 마포구립장애인직업재활센터","개별 안내"],
+        ["지역 사회적경제기업","나누리사회적협동조합, 사회적협동조합아트허브, (주)백의민족","개별 안내"],
+        ["유관기관","마포구 주민생활복지과(통합돌봄팀), 일자리청년과(사회적경제팀), 마포구의회","초대 안내"]
+      ],text:"",note:""}
+    ]
+  },
+
+  plan:{
+    showInvite:true,
+    outline:[
+      {k:"일 시",v:"2026년 9월 16일(수) 15:00 ~ 17:00"},
+      {k:"장 소",v:"재단법인 국제가톨릭형제회유지재단 전.진.상 센터 대강당"},
+      {k:"대 상",v:"마포 지역돌봄회 임직원 50명 내외"},
+      {k:"강 사",v:"양원석 소장 ┃ 푸른복지사무소"},
+      {k:"문 의",v:"02-303-5284 ┃ maposehub@gmail.com"},
+      {k:"주최/주관",v:"마포구 ┃ 마포구 사회적경제통합지원센터"}
+    ],
+    invite:"「의료·요양 등 지역 돌봄의 통합지원에 관한 법률」 시행 6개월,\n살던 곳에서 계속 살아갈 권리, 흩어진 돌봄을 하나로 잇는 일.\n오랫동안 지역에서 우리가 해온 이야기가 법이 되었습니다.\n\n돌봄통합지원법이 담고 있는 의미를 다시 새기고,\n앞으로 지역에 펼쳐질 변화의 그림을 함께 그려봅니다.\n\n2026 마포돌봄캠퍼스 전문가 과정\n〈돌봄통합지원법의 현재, 민간의 역할과 과제〉\n\n· 강 사 : 양원석 푸른복지사무소장\n· 일 시 : 2026년 9월 16일(수) 15:00 ~ 17:00\n· 대 상 : 마포 지역돌봄회 임직원 50명 내외\n· 장 소 : 전.진.상 센터 대강당\n· 문 의 : 마포구 사회적경제통합지원센터 02-303-5284\n· 신청 : 온라인 신청 링크 / QR코드",
+    effects:[
+      "법 시행 이후 제도 변화에 대한 지역 돌봄 주체의 이해도 제고",
+      "민간 돌봄 주체의 역할 정립 및 마포형 통합돌봄 협력 모델 논의 기반 마련",
+      "2025년 마포돌봄포럼에서 도출된 현장 의제를 정책 제안으로 구체화하는 연결고리 확보"
+    ]
+  },
+
+  report:{
+    linked:true,
+    content:[],
+    results:[],
+    perf:{sub:"마포돌봄캠퍼스",act:"전문가 과정 — 공통교육 운영",qual:[]},
+    review:[],
+    suggest:[],
+    attach:["참여자 명부 1부","강의자료 1부","진행사진 1식","만족도 조사 결과 1부"]
+  }
+};}
+
+let S = seed();
+const KEY='mapo:docs:v3';
+const C = () => S.common;
+const M = () => S.mode;
+
+/* ================= 상태 ================= */
+function set(path,v){const p=path.split('.');let o=S;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=v;render(true);}
+function get(path){return path.split('.').reduce((o,k)=>o?.[k],S);}
+function addRow(arr,obj){get(arr).push(typeof obj==='object'?cp(obj):obj);render();}
+function delRow(arr,i){get(arr).splice(i,1);render();}
+function setTab(t){S.tab=t;if(t!=='common')S.mode=t;document.body.classList.toggle('report',M()==='report');render();window.scrollTo(0,0);}
+
+function repContent(){return S.report.linked ? C().content : S.report.content;}
+function repPath(){return S.report.linked ? 'common.content' : 'report.content';}
+function unlink(){S.report.content=cp(C().content);S.report.linked=false;render();toast('실적으로 수정할 수 있습니다. 계획서는 그대로 유지됩니다');}
+function relink(){if(!confirm('결과보고서에서 수정한 사업내용을 버리고 계획서 내용으로 되돌립니다. 계속할까요?'))return;
+  S.report.linked=true;S.report.content=[];render();toast('계획서와 다시 연동했습니다');}
+function pullToResults(){
+  const src=repContent();
+  if(!src||!src.length){toast('사업내용에 가져올 항목이 없습니다');return;}
+  if((S.report.results||[]).length &&
+     !confirm('사업내용 '+src.length+'개 항목을 사업성과 아래에 추가합니다. 계속할까요?'))return;
+  S.report.results=(S.report.results||[]).concat(cp(src));
+  render();toast('사업내용을 가져왔습니다 — 실적 중심으로 고쳐 쓰세요');
+}
+function blockDiff(i){
+  if(S.report.linked)return null;
+  const a=C().content[i],b=S.report.content[i];
+  if(!a)return 'diff';
+  return JSON.stringify(a)===JSON.stringify(b)?'same':'diff';
+}
+
+/* ================= 공통 편집기 ================= */
+function inp(path,ph,cls){return '<input type="text" class="'+(cls||'')+'" value="'+esc(get(path))+'" placeholder="'+esc(ph||'')+'" oninput="set(\''+path+'\',this.value)">';}
+function ta(path,ph,rows){return '<textarea rows="'+(rows||3)+'" placeholder="'+esc(ph||'')+'" oninput="set(\''+path+'\',this.value)">'+esc(get(path))+'</textarea>';}
+function listEditor(arr,ph){
+  const a=get(arr)||[];let h='';
+  a.forEach((_,i)=>{h+='<div style="display:flex;gap:4px;margin-bottom:5px"><textarea rows="2" style="flex:1" placeholder="'+esc(ph)+'" oninput="set(\''+arr+'.'+i+'\',this.value)">'+esc(a[i])+'</textarea><button class="del" onclick="delRow(\''+arr+'\','+i+')">×</button></div>';});
+  return h+'<button class="add" onclick="addRow(\''+arr+'\',\'\')">+ 항목 추가</button>';
+}
+function tableEditor(arr,cols){
+  const a=get(arr)||[];
+  let h='<div class="tblwrap"><table class="edit"><thead><tr>';
+  cols.forEach(c=>h+='<th style="width:'+c.w+'">'+esc(c.t)+'</th>');
+  h+='<th style="width:26px"></th></tr></thead><tbody>';
+  a.forEach((row,i)=>{
+    h+='<tr>';
+    cols.forEach(c=>{const p=arr+'.'+i+'.'+c.k;
+      h+='<td>'+(c.multi?'<textarea rows="2" oninput="set(\''+p+'\',this.value)">'+esc(row[c.k]??'')+'</textarea>'
+        :'<input type="text" value="'+esc(row[c.k]??'')+'" placeholder="'+esc(c.ph||'')+'" oninput="set(\''+p+'\',this.value)">')+'</td>';});
+    h+='<td><button class="del" onclick="delRow(\''+arr+'\','+i+')">×</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  const blank={};cols.forEach(c=>blank[c.k]='');
+  return h+'<button class="add" onclick=\'addRow("'+arr+'",'+JSON.stringify(blank)+')\'>+ 행 추가</button>';
+}
+function card(no,title,hint,body){
+  return '<details class="card" open><summary><span class="sec-no">'+no+'</span><span class="sec-t">'+title+'</span><span class="sec-hint">'+hint+'</span></summary><div class="body">'+body+'</div></details>';
+}
+const SHARED='<span class="shared">공통</span>';
+
+const TYPES=[['table','표'],['list','목록'],['text','서술']];
+function addBlock(p){get(p).push({t:"",type:"table",cols:["구분","내용"],w:["25%","auto"],rows:[["",""]],text:"",note:""});render();}
+function delBlock(p,i){if(!confirm('“'+(get(p)[i].t||'제목 없는 항목')+'” 항목을 삭제할까요?'))return;get(p).splice(i,1);render();}
+function moveBlock(p,i,d){const a=get(p),j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];render();}
+function setType(p,i,v){get(p)[i].type=v;render();}
+function addCol(p,i){const b=get(p)[i];b.cols.push('');b.w.push('auto');b.rows.forEach(r=>r.push(''));render();}
+function delCol(p,i,c){const b=get(p)[i];if(b.cols.length<=1){toast('열은 하나 이상 필요합니다');return;}b.cols.splice(c,1);b.w.splice(c,1);b.rows.forEach(r=>r.splice(c,1));render();}
+function addBRow(p,i){const b=get(p)[i];b.rows.push(new Array(b.cols.length).fill(''));render();}
+function delBRow(p,i,r){get(p)[i].rows.splice(r,1);render();}
+function contentEditor(p,showDiff,label){
+  let h='';
+  (get(p)||[]).forEach((b,i)=>{
+    const dif=showDiff?blockDiff(i):null;
+    h+='<div class="blk"><div class="blk-h">'
+      +'<input type="text" class="blk-t" value="'+esc(b.t)+'" placeholder="항목 제목 (예: 프로그램, 주요 사업내용)" oninput="set(\''+p+'.'+i+'.t\',this.value)">'
+      +(dif?'<span class="badge '+dif+'">'+(dif==='same'?'계획과 동일':'수정됨')+'</span>':'')
+      +'<select onchange="setType(\''+p+'\','+i+',this.value)">'+TYPES.map(t=>'<option value="'+t[0]+'"'+(b.type===t[0]?' selected':'')+'>'+t[1]+'</option>').join('')+'</select>'
+      +'<button class="del" title="위로" onclick="moveBlock(\''+p+'\','+i+',-1)">↑</button>'
+      +'<button class="del" title="아래로" onclick="moveBlock(\''+p+'\','+i+',1)">↓</button>'
+      +'<button class="del" title="삭제" onclick="delBlock(\''+p+'\','+i+')">×</button></div>';
+    if(b.type==='table'){
+      h+='<div class="tblwrap"><table class="edit"><thead><tr>';
+      b.cols.forEach((c,ci)=>{h+='<th'+(b.w?.[ci]&&b.w[ci]!=='auto'?' style="width:'+b.w[ci]+'"':'')+'><div class="colh"><input type="text" value="'+esc(c)+'" placeholder="열 이름" oninput="set(\''+p+'.'+i+'.cols.'+ci+'\',this.value)"><button class="del" onclick="delCol(\''+p+'\','+i+','+ci+')">×</button></div></th>';});
+      h+='<th style="width:26px"></th></tr></thead><tbody>';
+      b.rows.forEach((row,ri)=>{h+='<tr>';
+        b.cols.forEach((_,ci)=>h+='<td><textarea rows="2" oninput="set(\''+p+'.'+i+'.rows.'+ri+'.'+ci+'\',this.value)">'+esc(row[ci]??'')+'</textarea></td>');
+        h+='<td><button class="del" onclick="delBRow(\''+p+'\','+i+','+ri+')">×</button></td></tr>';});
+      h+='</tbody></table></div><div class="btn2"><button class="add" onclick="addBRow(\''+p+'\','+i+')">+ 행 추가</button><button class="add" onclick="addCol(\''+p+'\','+i+')">+ 열 추가</button></div>';
+    }else{
+      h+='<textarea rows="6" placeholder="'+(b.type==='list'?'한 줄에 한 항목씩 입력':'문단으로 입력')+'" oninput="set(\''+p+'.'+i+'.text\',this.value)">'+esc(b.text||'')+'</textarea>';
+    }
+    h+='<textarea rows="2" style="margin-top:7px" placeholder="비고 (비우면 문서에서 숨김)" oninput="set(\''+p+'.'+i+'.note\',this.value)">'+esc(b.note||'')+'</textarea></div>';
+  });
+  return h+'<button class="add" onclick="addBlock(\''+p+'\')">+ '+(label||'사업내용')+' 항목 추가</button>';
+}
+
+const UNITS=['명','시간','회','부','식','개','일','건','매','팀','권','대'];
+function toggleManual(path,on){const r=get(path);r.manual=on;
+  if(on&&!r.c){const c=calcCell(Object.assign({},r,{manual:false}));r.c=c.basis;r.amt=String(c.amt);}render();}
+function calcLine(path,tag,tagCls){
+  const r=get(path);let h='<div class="bcalc"><span class="btag '+tagCls+'">'+tag+'</span>';
+  if(r.manual){
+    h+='<input type="text" style="flex:1;min-width:150px" value="'+esc(r.c)+'" placeholder="산출근거 직접 입력" oninput="set(\''+path+'.c\',this.value)">'
+     +'<input type="text" class="num" style="width:100px" value="'+esc(r.amt)+'" placeholder="금액" oninput="set(\''+path+'.amt\',this.value)">';
+  }else{
+    h+='<input type="text" class="num bp" value="'+esc(r.p)+'" placeholder="단가" oninput="set(\''+path+'.p\',this.value)"><span class="bl">원</span>';
+    for(let k=0;k<3;k++)h+='<span class="bx">×</span><input type="text" class="num bq" value="'+esc(r.f[k]?.v??'')+'" oninput="set(\''+path+'.f.'+k+'.v\',this.value)"><input type="text" class="bu" list="units" value="'+esc(r.f[k]?.u??'')+'" placeholder="단위" oninput="set(\''+path+'.f.'+k+'.u\',this.value)">';
+  }
+  return h+'<label class="chk"><input type="checkbox" '+(r.manual?'checked':'')+' onchange="toggleManual(\''+path+'\',this.checked)"> 직접</label></div>';
+}
+function budgetEditor(withActual){
+  const p='common.budget';
+  let h='<datalist id="units">'+UNITS.map(u=>'<option value="'+u+'">').join('')+'</datalist>';
+  (get(p)||[]).forEach((r,i)=>{
+    const pc=calcCell(r.pl),ac=calcCell(r.ac);
+    h+='<div class="brow"><div class="bline"><input type="text" class="bname" value="'+esc(r.a)+'" placeholder="내역 / 과목" oninput="set(\''+p+'.'+i+'.a\',this.value)"><button class="del" onclick="delRow(\''+p+'\','+i+')">×</button></div>';
+    h+=calcLine(p+'.'+i+'.pl','예산','p');
+    if(withActual)h+=calcLine(p+'.'+i+'.ac','결산','a');
+    h+='<div class="bline"><input type="text" style="flex:1" value="'+esc(r.d)+'" placeholder="비고" oninput="set(\''+p+'.'+i+'.d\',this.value)"></div>';
+    h+='<div class="bout" id="bo-'+i+'"><span class="bbasis">'+(withActual
+        ? '예산 '+won(pc.amt)+'원 · 결산 '+won(ac.amt)+'원'
+        : (pc.basis?esc(pc.basis):'<span class="empty">단가와 수량을 입력하세요</span>'))
+      +'</span><b class="bamt">'+(withActual?(pc.amt?Math.round(ac.amt/pc.amt*100):0)+'%':won(pc.amt)+'원')+'</b></div></div>';
+  });
+  const blank={a:"",d:"",pl:emptyCalc(),ac:emptyCalc()};
+  return h+'<button class="add" onclick=\'addRow("'+p+'",'+JSON.stringify(blank)+')\'>+ 예산 항목 추가</button>';
+}
+function totalP(){return (C().budget||[]).reduce((s,r)=>s+calcCell(r.pl).amt,0);}
+function totalA(){return (C().budget||[]).reduce((s,r)=>s+calcCell(r.ac).amt,0);}
+function execRate(){const p=totalP();return p?Math.round(totalA()/p*100):0;}
+function refreshCalc(){
+  const withA=(S.tab!=='plan');
+  (C().budget||[]).forEach((r,i)=>{
+    const el=document.getElementById('bo-'+i);if(!el)return;
+    const pc=calcCell(r.pl),ac=calcCell(r.ac);
+    if(withA){el.querySelector('.bbasis').textContent='예산 '+won(pc.amt)+'원 · 결산 '+won(ac.amt)+'원';
+      el.querySelector('.bamt').textContent=(pc.amt?Math.round(ac.amt/pc.amt*100):0)+'%';}
+    else{el.querySelector('.bbasis').innerHTML=pc.basis?esc(pc.basis):'<span class="empty">단가와 수량을 입력하세요</span>';
+      el.querySelector('.bamt').textContent=won(pc.amt)+'원';}
+  });
+  const s=document.getElementById('bsum');
+  if(s)s.textContent = withA
+    ? '예산 '+won(totalP())+'원 · 집행 '+won(totalA())+'원 · 집행율 '+execRate()+'%'
+    : won(totalP())+'원';
+}
+
+/* ================= 폼 ================= */
+function renderForm(){
+  ['common','plan','report'].forEach(t=>{
+    document.getElementById('t-'+t).className = S.tab===t ? ('on'+(t==='common'?' neutral':'')) : '';
+  });
+  document.getElementById('form').innerHTML =
+    S.tab==='common' ? commonForm() : S.tab==='plan' ? planForm() : reportForm();
+}
+
+function commonForm(){
+  let h='<div class="notice"><b>여기서 입력한 내용은 두 문서에 함께 들어갑니다.</b> 어느 쪽에서 고치든 같은 값이 유지됩니다.</div>';
+  h+=card('공통','사업 기본정보','문서 머리말',
+    '<div class="row"><label>세부사업명</label>'+inp('common.kicker','예) 2026 마포돌봄캠퍼스 전문가 과정')+'</div>'
+   +'<div class="row"><label>사업명</label>'+inp('common.title','문서 제목이 되는 사업명')+'</div>'
+   +'<div class="row"><label>지원대상</label>'+inp('common.target','예) 마포 지역돌봄회 임직원 50명 내외')+'</div>'
+   +'<div class="row"><label>사업기간</label>'+inp('common.period','예) 2026.08.20. ~ 2026.09.23.')+'</div>'
+   +'<div class="grid2"><div class="row" style="grid-template-columns:64px 1fr"><label>담당자</label>'+inp('common.writer')+'</div>'
+   +'<div class="row" style="grid-template-columns:64px 1fr"><label>작성일</label>'+inp('common.writeDate')+'</div></div>'
+   +'<div class="row"><label>작성부서</label>'+inp('common.org')+'</div>');
+  h+=card('공통','추진배경 및 목적','두 문서 첫머리에 동일하게 사용',
+    '<h4 class="fl">추진배경</h4>'+listEditor('common.background','추진배경을 한 문장으로 입력')
+   +'<h4 class="fl">목 적</h4>'+listEditor('common.purpose','목적을 한 문장으로 입력'));
+  h+=card('공통','예산과목','계획서·결과보고서 공용',
+    '<div class="grid2">'+['src|세출원','gwan|관','hang|항','mok|목','semok|세목'].map(x=>{const[k,l]=x.split('|');
+      return '<div class="row" style="grid-template-columns:52px 1fr"><label>'+l+'</label>'+inp('common.account.'+k)+'</div>';}).join('')+'</div>');
+  h+=card('공통','예산 · 평가지표 · 성과물','계획과 실적을 한 표에서',
+    '<p class="hint">이 세 가지는 계획 값과 실적 값을 같은 표에 담습니다. 계획서 탭에서는 계획 값만, 결과보고서 탭에서는 실적까지 편집됩니다.</p>'
+   +'<h4 class="fl">예산 (예산 · 결산)</h4>'+budgetEditor(true)
+   +'<div class="sum"><span>합계</span><b id="bsum">예산 '+won(totalP())+'원 · 집행 '+won(totalA())+'원 · 집행율 '+execRate()+'%</b></div>'
+   +'<h4 class="fl">평가지표 (목표 · 실적)</h4>'
+   +tableEditor('common.kpi',[{t:'구분',k:'a',w:'12%'},{t:'측정방법 및 도구',k:'b',w:'auto',multi:true},{t:'목표',k:'c',w:'20%'},{t:'실적',k:'d',w:'20%'}])
+   +'<h4 class="fl">성과물 (계획 · 실제)</h4>'
+   +tableEditor('common.outputs',[{t:'자료유형',k:'a',w:'18%'},{t:'성과물 명칭',k:'b',w:'auto'},{t:'계획수량',k:'c',w:'14%'},{t:'실제수량',k:'d',w:'14%'},{t:'비고',k:'e',w:'16%'}]));
+  h+=card('공통','사업내용 및 추진방법','계획서 원본 · 보고서가 물려받음',
+    '<p class="hint">여기가 계획서의 사업내용입니다. 결과보고서는 기본적으로 이 내용을 그대로 씁니다.</p>'+contentEditor('common.content'));
+  return h;
+}
+
+function toggleInvite(on){S.plan.showInvite=on;render();
+  toast(on?'홍보물 항목을 문서에 넣습니다':'홍보물 항목을 문서에서 뺐습니다');}
+
+function planForm(){
+  let n=0;const N=()=>String(++n);
+  let h='<div class="notice">사업명·기간·배경·목적은 <b>공통 정보</b> 탭에서 관리합니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  h+=card(N(),'사업개요','개요 '+SHARED,
+    '<p class="hint">추진배경과 목적은 공통 정보 탭에서 입력합니다.</p>'
+   +'<h4 class="fl">개요</h4>'+tableEditor('plan.outline',[{t:'항목',k:'k',w:'26%'},{t:'내용',k:'v',w:'auto'}]));
+  h+=card(N(),'사업내용 및 추진방법','형식 자유 구성 '+SHARED,
+    '<p class="hint">항목마다 제목과 형식(표·목록·서술)을 정할 수 있습니다. 결과보고서가 이 내용을 물려받습니다.</p>'
+   +contentEditor('common.content'));
+  h+=card(N(),'사업예산','계획 금액 '+SHARED,
+    '<p class="hint">단가와 수량을 넣으면 산출근거와 금액이 자동 계산됩니다. 결산은 결과보고서 탭에서 채웁니다.</p>'
+   +budgetEditor(false)+'<div class="sum"><span>합계</span><b id="bsum">'+won(totalP())+'원</b></div>');
+
+  const on=S.plan.showInvite!==false;
+  h+=card(on?N():'선택','홍보물',(on?'문서에 포함':'문서에서 제외'),
+    '<div class="notice" style="margin-bottom:10px"><label class="chk" style="font-size:12.5px;color:var(--ink)">'
+   +'<input type="checkbox" '+(on?'checked':'')+' onchange="toggleInvite(this.checked)"> 이 항목을 사업계획서에 넣기</label>'
+   +'<span class="hint" style="margin:0">홍보물이 없는 사업이면 체크를 풀어 두세요. 내용은 지워지지 않습니다.</span></div>'
+   +(on?ta('plan.invite','홍보물에 들어갈 문구를 입력',16)
+       :'<p class="hint" style="margin:0">문서에서 빠진 상태입니다. 체크하면 다시 나타납니다.</p>'));
+
+  h+=card(N(),'기대효과 및 평가지표','목표값 '+SHARED,
+    '<h4 class="fl">평가지표<span class="hint" style="margin:0">실적 칸은 결과보고서 탭에서 채웁니다</span></h4>'
+   +tableEditor('common.kpi',[{t:'구분',k:'a',w:'14%'},{t:'측정방법 및 도구',k:'b',w:'auto',multi:true},{t:'목표',k:'c',w:'24%'}])
+   +'<h4 class="fl">예상 성과물</h4>'
+   +tableEditor('common.outputs',[{t:'자료유형',k:'a',w:'22%'},{t:'성과물 명칭',k:'b',w:'auto'},{t:'계획수량',k:'c',w:'18%'}])
+   +'<h4 class="fl">기대효과</h4>'+listEditor('plan.effects','기대효과를 한 문장으로 입력'));
+  return h;
+}
+
+function reportForm(){
+  let h='<div class="notice">사업명·기간·배경·목적은 <b>공통 정보</b> 탭에서 관리합니다. 계획서에 쓴 값이 그대로 들어옵니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  const linked=S.report.linked;
+  h+=card('1','사업내용 및 추진방법',(linked?'계획서와 연동됨':'실적으로 수정 중'),
+    '<div class="notice" style="margin-bottom:10px">'
+    +(linked
+      ? '계획서에 쓴 사업내용을 그대로 사용합니다. 실제 진행이 달라졌다면 여기서 갈라놓으세요. <button class="btn sm" onclick="unlink()">실적으로 수정</button>'
+      : '계획서와 분리되어 있습니다. 여기서 고쳐도 계획서는 바뀌지 않습니다. <button class="btn sm" onclick="relink()">계획서와 다시 연동</button>')
+    +'</div>'+contentEditor(repPath(),!linked));
+  h+=card('2','사업성과','형식 자유 구성',
+    '<div class="notice" style="margin-bottom:10px">항목마다 형식(표·목록·서술)을 정할 수 있습니다. 사업내용을 뼈대로 삼으려면 가져와서 실적 중심으로 고쳐 쓰세요. '
+   +'<button class="btn sm" onclick="pullToResults()">사업내용 가져오기</button></div>'
+   +contentEditor('report.results',false,'사업성과'));
+  h+=card('3','추진실적','평가지표 실적 '+SHARED,
+    '<div class="row"><label>세부사업</label>'+inp('report.perf.sub')+'</div>'
+   +'<div class="row"><label>추진내용</label>'+inp('report.perf.act')+'</div>'
+   +'<h4 class="fl">평가지표 실적<span class="hint" style="margin:0">목표는 계획서에서 옵니다</span></h4>'
+   +tableEditor('common.kpi',[{t:'측정방법 및 도구',k:'b',w:'auto',multi:true},{t:'목표',k:'c',w:'22%'},{t:'실적',k:'d',w:'22%',ph:'실적'}])
+   +'<h4 class="fl">정성적 평가</h4>'+listEditor('report.perf.qual','정성적 평가를 한 문장으로 입력'));
+  h+=card('4','소요예산','결산 입력 '+SHARED,
+    '<p class="hint">예산 줄은 계획서에서 넘어온 값입니다. 결산 줄만 채우면 집행율이 자동 계산됩니다.</p>'
+   +budgetEditor(true)
+   +'<div class="sum"><span>합계</span><b id="bsum">예산 '+won(totalP())+'원 · 집행 '+won(totalA())+'원 · 집행율 '+execRate()+'%</b></div>');
+  h+=card('5','사업성과물 목록','실제수량 '+SHARED,
+    tableEditor('common.outputs',[{t:'자료유형',k:'a',w:'18%'},{t:'성과물 명칭',k:'b',w:'auto'},{t:'계획',k:'c',w:'12%'},{t:'실제',k:'d',w:'12%',ph:'실제'},{t:'비고',k:'e',w:'16%'}]));
+  h+=card('6','사업총평 및 제언사항','결과보고서 전용',
+    '<h4 class="fl">총평</h4>'+listEditor('report.review','총평을 한 문장으로 입력')
+   +'<h4 class="fl">제언사항</h4>'+listEditor('report.suggest','제언사항을 한 문장으로 입력'));
+  h+=card('7','붙임서류','결과보고서 전용',listEditor('report.attach','붙임서류를 한 줄씩 입력'));
+  return h;
+}
+
+/* ================= 문서 ================= */
+function ulList(a,ph){
+  const it=(a||[]).filter(x=>x&&String(x).trim());
+  return '<ul class="d">'+(it.length?it.map(x=>'<li>'+nl(x)+'</li>').join(''):'<li class="empty">'+ph+'</li>')+'</ul>';
+}
+function docTable(rows,cols,widths,ph){
+  let h='<div class="tblwrap"><table class="doc"><thead><tr>';
+  cols.forEach((c,i)=>h+='<th'+(widths?.[i]?' style="width:'+widths[i]+'"':'')+'>'+esc(c.t)+'</th>');
+  h+='</tr></thead><tbody>';
+  if(!rows||!rows.length)h+='<tr><td colspan="'+cols.length+'"><span class="empty">'+(ph||'입력된 내용이 없습니다')+'</span></td></tr>';
+  (rows||[]).forEach((r,ri)=>{h+='<tr>';cols.forEach(c=>h+='<td>'+(c.k==='#'?(ri+1):nl(r[c.k]))+'</td>');h+='</tr>';});
+  return h+'</tbody></table></div>';
+}
+function contentDoc(blocks,ph){
+  if(!blocks||!blocks.length)return '<p class="empty">'+(ph||'사업내용 항목을 추가하세요')+'</p>';
+  let h='';
+  blocks.forEach(b=>{
+    h+='<h3 class="dh3">'+(b.t&&b.t.trim()?esc(b.t):'<span class="empty">제목 없는 항목</span>')+'</h3>';
+    if(b.type==='table'){
+      h+='<div class="tblwrap"><table class="doc"><thead><tr>';
+      b.cols.forEach((c,ci)=>h+='<th'+(b.w?.[ci]&&b.w[ci]!=='auto'?' style="width:'+b.w[ci]+'"':'')+'>'+nl(c)+'</th>');
+      h+='</tr></thead><tbody>';
+      if(!b.rows.length)h+='<tr><td colspan="'+b.cols.length+'"><span class="empty">입력된 내용이 없습니다</span></td></tr>';
+      b.rows.forEach(r=>{h+='<tr>';b.cols.forEach((_,ci)=>h+='<td>'+nl(r[ci]??'')+'</td>');h+='</tr>';});
+      h+='</tbody></table></div>';
+    }else if(b.type==='list')h+=ulList(lines(b.text),'내용을 입력하세요');
+    else h+='<p style="margin:0 0 6px">'+val(b.text,'내용을 입력하세요')+'</p>';
+    if(b.note&&b.note.trim())h+='<p class="callout">'+nl(b.note)+'</p>';
+  });
+  return h;
+}
+function docHead(sub,scaleCells){
+  const m=C();
+  return '<p class="doc-kicker">'+val(m.kicker,'세부사업명')+'</p>'
+   +'<h1 class="doc-title">'+val(m.title,'사업명을 입력하세요')+'</h1>'
+   +'<p class="doc-sub">'+sub+'</p>'
+   +'<div class="doc-meta"><span>작성일 '+val(m.writeDate,'-')+'</span><span>'+(M()==='plan'?'작성자':'담당자')+' '+val(m.writer,'-')+'</span><span>'+val(m.org,'-')+'</span></div>'
+   +'<div class="tblwrap" style="margin-bottom:28px"><table class="doc"><tbody>'
+   +'<tr><th style="width:15%">지원대상</th><td>'+val(m.target,'지원대상을 입력하세요')+'</td>'
+   +'<th style="white-space:nowrap">사업기간</th><td>'+val(m.period,'사업기간을 입력하세요')+'</td></tr>'
+   +'<tr><th>지원규모</th>'+scaleCells+'</tr></tbody></table></div>';
+}
+
+function planDoc(){
+  const m=C(),d=S.plan;let h='',n=0;
+  const H=t=>'<h2 class="dh">'+(++n)+'. '+t+'</h2>';
+  h+=docHead('단위사업계획서','<td colspan="3">예산금액 '+won(totalP())+'원</td>');
+  h+=H('사업개요');
+  h+='<h3 class="dh3">추진배경</h3>'+ulList(m.background,'추진배경을 입력하세요');
+  h+='<h3 class="dh3">목적</h3>'+ulList(m.purpose,'목적을 입력하세요');
+  h+='<h3 class="dh3">개요</h3><ol class="d">'+(d.outline||[]).map(r=>'<li><b>'+esc(r.k)+'</b> : '+nl(r.v)+'</li>').join('')+'</ol>';
+  h+=H('사업내용 및 추진방법')+contentDoc(m.content);
+  h+=H('사업예산')+'<h3 class="dh3">예산과목</h3><p class="unit">(단위:원)</p>';
+  const a=m.account;
+  h+='<div class="tblwrap"><table class="doc"><thead><tr><th>세출원</th><th>관</th><th>항</th><th>목</th><th>세목</th><th>금액</th></tr></thead><tbody><tr>'
+   +'<td>'+nl(a.src)+'</td><td>'+nl(a.gwan)+'</td><td>'+nl(a.hang)+'</td><td>'+nl(a.mok)+'</td><td>'+nl(a.semok)+'</td><td class="n">'+won(totalP())+'</td></tr></tbody></table></div>';
+  h+='<h3 class="dh3">세부예산내역</h3><p class="unit">(단위:원)</p>';
+  h+='<div class="tblwrap"><table class="doc"><thead><tr><th style="width:24%">내역</th><th style="width:16%">금액</th><th>산출근거</th><th style="width:22%">비고</th></tr></thead><tbody>';
+  (m.budget||[]).forEach(r=>{const c=calcCell(r.pl);
+    h+='<tr><td>'+nl(r.a)+'</td><td class="n">'+won(c.amt)+'</td><td>'+nl(c.basis)+'</td><td>'+nl(r.d)+'</td></tr>';});
+  h+='<tr class="total"><td>합계</td><td class="n">'+won(totalP())+'</td><td colspan="2"></td></tr></tbody></table></div>';
+  if(d.showInvite!==false)h+=H('홍보물')+'<div class="invite">'+val(d.invite,'홍보물 문구를 입력하세요')+'</div>';
+  h+=H('기대효과 및 평가지표');
+  h+='<h3 class="dh3">평가지표</h3>'+docTable(m.kpi,[{t:'구분',k:'a'},{t:'측정방법 및 도구',k:'b'},{t:'목표',k:'c'}],['14%','auto','24%']);
+  h+='<h3 class="dh3">예상 성과물</h3>'+docTable(m.outputs,[{t:'번호',k:'#'},{t:'자료유형',k:'a'},{t:'성과물 명칭',k:'b'},{t:'수량',k:'c'}],['8%','20%','auto','14%']);
+  h+='<h3 class="dh3">기대효과</h3>'+ulList(d.effects,'기대효과를 입력하세요');
+  return h;
+}
+
+function reportDoc(){
+  const m=C(),d=S.report;let h='';
+  h+=docHead('세부사업 결과보고서',
+    '<td><span class="cap">예산금액</span>'+won(totalP())+'원</td>'
+   +'<td><span class="cap">집행금액</span>'+won(totalA())+'원</td>'
+   +'<td><span class="cap">집행율</span>'+execRate()+'%</td>');
+  h+='<h2 class="dh">추진배경</h2>'+ulList(m.background,'추진배경을 입력하세요');
+  h+='<h2 class="dh">목적</h2>'+ulList(m.purpose,'목적을 입력하세요');
+  h+='<h2 class="dh">사업내용 및 추진방법</h2>'+contentDoc(repContent());
+  h+='<h2 class="dh">사업성과</h2>'+contentDoc(d.results,'사업성과 항목을 추가하세요');
+  h+='<h2 class="dh">추진실적</h2>';
+  h+='<div class="tblwrap"><table class="doc"><tbody><tr><th style="width:18%">세부사업</th><td>'+val(d.perf.sub,'-')+'</td></tr>'
+   +'<tr><th>추진내용</th><td>'+val(d.perf.act,'-')+'</td></tr></tbody></table></div>';
+  h+='<h4 class="dh4">정량적 평가</h4>'
+   +docTable(m.kpi,[{t:'구분',k:'a'},{t:'측정방법 및 도구',k:'b'},{t:'목표',k:'c'},{t:'실적',k:'d'}],['12%','auto','18%','18%']);
+  h+='<h4 class="dh4">정성적 평가</h4>'+ulList(d.perf.qual,'정성적 평가를 입력하세요');
+  h+='<h2 class="dh">소요예산</h2><p class="unit">(단위:원)</p>';
+  h+='<div class="tblwrap"><table class="doc"><thead><tr><th style="width:20%">과목</th><th style="width:12%">예산</th><th>산출근거</th><th style="width:12%">결산</th><th>산출근거</th></tr></thead><tbody>';
+  const rows=m.budget||[];
+  rows.forEach(r=>{const p=calcCell(r.pl),ac=calcCell(r.ac);
+    h+='<tr><td>'+nl(r.a)+'</td><td class="n">'+won(p.amt)+'</td><td>'+nl(p.basis)+'</td><td class="n">'+won(ac.amt)+'</td><td>'+nl(ac.basis)+'</td></tr>';});
+  if(!rows.length)h+='<tr><td colspan="5"><span class="empty">예산 항목을 추가하세요</span></td></tr>';
+  h+='<tr class="total"><td>합계</td><td class="n">'+won(totalP())+'</td><td></td><td class="n">'+won(totalA())+'</td><td>집행율 '+execRate()+'%</td></tr></tbody></table></div>';
+  h+='<h2 class="dh">사업성과물 목록</h2>'
+   +docTable(m.outputs,[{t:'번호',k:'#'},{t:'자료유형',k:'a'},{t:'성과물 명칭',k:'b'},{t:'수량',k:'d'},{t:'비고',k:'e'}],['8%','18%','auto','12%','16%']);
+  h+='<h2 class="dh">사업총평 및 제언사항</h2>';
+  h+='<h3 class="dh3">총평</h3>'+ulList(d.review,'총평을 입력하세요');
+  h+='<h3 class="dh3">제언사항</h3>'+ulList(d.suggest,'제언사항을 입력하세요');
+  h+='<h2 class="dh">붙임서류</h2>'+ulList(d.attach,'붙임서류를 입력하세요');
+  return h;
+}
+
+function render(docOnly){
+  if(!docOnly)renderForm();
+  document.getElementById('sheet').innerHTML = M()==='plan'?planDoc():reportDoc();
+  refreshCalc();
+  if(!render._quiet){dirty=true;}
+  updateStatus();
+  clearTimeout(render._t);render._t=setTimeout(stash,1200);
+}
+
+/* ================= 저장 · 내보내기 ================= */
+let dirty=false, savedAt='';
+function updateStatus(){
+  const el=document.getElementById('status');if(!el)return;
+  if(dirty){el.textContent='변경됨 · 사업파일 저장 권장';el.className='status dirty';}
+  else if(savedAt){el.textContent='사업파일 저장 '+savedAt;el.className='status on';}
+  else {el.textContent='';el.className='status';}
+}
+/* 앱 저장소를 쓸 수 있으면 조용히 임시 보관한다. 실패해도 아무 표시를 하지 않는다. */
+async function stash(){try{await window.storage.set(KEY,JSON.stringify(S));}catch(e){}}
+
+function stamp(){const d=new Date();
+  return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');}
+function clock(){const d=new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+
+/* 사업파일 내려받기 : 입력값만 담은 데이터 파일 */
+function dlData(){
+  const pack={_app:'mapo-doc-tool',_v:3,_savedAt:new Date().toISOString(),data:S};
+  const name=((C().title||'사업문서').replace(/[\\/:*?"<>|]/g,'').trim()||'사업문서')+'_'+stamp()+'.json';
+  const url=URL.createObjectURL(new Blob([JSON.stringify(pack,null,1)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  dirty=false;savedAt=clock();updateStatus();
+  toast('사업파일을 내려받았습니다 — 사업 폴더에 보관하세요');
+}
+/* 사업파일 불러오기 */
+function loadFile(input){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let obj;
+    try{obj=JSON.parse(r.result);}catch(e){toast('사업파일을 읽지 못했습니다. 파일이 손상되었을 수 있습니다');return;}
+    const d=obj&&obj.data?obj.data:obj;
+    if(!d||typeof d!=='object'||!d.common){toast('이 도구의 사업파일이 아닙니다');return;}
+    const nm=(d.common&&d.common.title)||'제목 없음';
+    if(!confirm('“'+nm+'”을(를) 불러옵니다.\n지금 작성 중인 내용은 사라집니다. 계속할까요?'))return;
+    S=d;migrate();
+    dirty=false;savedAt='';updateStatus();
+    document.body.classList.toggle('report',M()==='report');
+    render();stash();
+    toast('불러왔습니다 — '+nm);
+  };
+  r.onerror=()=>toast('파일을 열지 못했습니다');
+  r.readAsText(f,'utf-8');
+}
+
+function migrate(){
+  const d=seed();
+  S.tab=S.tab||'plan';S.mode=S.mode||'plan';
+  S.common=Object.assign({},d.common,S.common||{});
+  S.plan=Object.assign({},d.plan,S.plan||{});
+  S.report=Object.assign({},d.report,S.report||{});
+  const old=S.meta;
+  if(old){['kicker','title','target','period','writer','writeDate','org'].forEach(k=>{if(old[k]!==undefined)S.common[k]=old[k];});delete S.meta;}
+  if(S.plan.purpose){S.common.purpose=S.plan.purpose;delete S.plan.purpose;}
+  if(S.plan.content){S.common.content=S.plan.content;delete S.plan.content;}
+  if(S.plan.account){S.common.account=S.plan.account;delete S.plan.account;}
+  if(S.plan.kpi){S.common.kpi=S.plan.kpi.map(r=>({a:r.a||'',b:r.b||'',c:r.c||'',d:r.d||''}));delete S.plan.kpi;}
+  if(S.plan.budget){S.common.budget=S.plan.budget.map(r=>({a:r.a||'',d:r.d||'',
+    pl:r.pl||{p:r.p||'',f:r.f||[],manual:!!r.manual,c:r.c||'',amt:r.amt||''},ac:r.ac||emptyCalc()}));delete S.plan.budget;}
+  if(S.report.background){S.common.background=S.report.background;delete S.report.background;}
+  delete S.report.purpose;delete S.report.budget;delete S.report.budgetHead;
+  if(S.report.outputs){S.common.outputs=S.report.outputs.map(r=>({a:r.a||'',b:r.b||'',c:'',d:r.c||'',e:r.d||''}));delete S.report.outputs;}
+  if(S.report.perf&&S.report.perf.quant)delete S.report.perf.quant;
+  if(typeof S.report.linked!=='boolean')S.report.linked=!(S.report.content&&S.report.content.length);
+  (S.common.budget||[]).forEach(r=>{r.pl=r.pl||emptyCalc();r.ac=r.ac||emptyCalc();
+    [r.pl,r.ac].forEach(c=>{c.f=[0,1,2].map(k=>(c.f||[])[k]||{v:'',u:''});});});
+  if(typeof S.plan.showInvite!=='boolean')S.plan.showInvite=true;
+  /* 사업성과: 예전의 문장 목록 → 목록형 블록 하나로 */
+  if(Array.isArray(S.report.results) && S.report.results.some(x=>typeof x==='string')){
+    const txt=S.report.results.filter(x=>typeof x==='string'&&x.trim()).join('\n');
+    S.report.results = txt ? [{t:'주요 성과',type:'list',cols:[],w:[],rows:[],text:txt,note:''}] : [];
+  }
+  if(!Array.isArray(S.report.results))S.report.results=[];
+  (S.common.kpi||[]).forEach(r=>{if(r.d===undefined)r.d='';});
+  (S.common.outputs||[]).forEach(r=>{['a','b','c','d','e'].forEach(k=>{if(r[k]===undefined)r[k]='';});});
+}
+async function load(){
+  try{const r=await window.storage.get(KEY);
+    if(r&&r.value){S=JSON.parse(r.value);migrate();}
+  }catch(e){}
+  document.body.classList.toggle('report',M()==='report');
+  render._quiet=true;render();render._quiet=false;
+  dirty=false;updateStatus();
+}
+function resetAll(){
+  if(!confirm('공통 정보를 포함해 모두 처음 기본값으로 되돌립니다. 계속할까요?'))return;
+  const t=S.tab;S=seed();S.tab=t;if(t!=='common')S.mode=t;render();stash();toast('기본값으로 되돌렸습니다');
+}
+function fname(ext){
+  const t=(M()==='plan'?'사업계획서':'결과보고서');
+  return ((C().title||'문서').replace(/[\\/:*?"<>|]/g,'').trim()+'_'+t)+'.'+ext;
+}
+function copyDoc(){
+  const el=document.getElementById('sheet'),html=el.innerHTML,text=el.innerText;
+  if(navigator.clipboard&&window.ClipboardItem){
+    navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([text],{type:'text/plain'})})])
+      .then(()=>toast('복사했습니다. 한글·워드에 붙여넣으세요')).catch(fb);
+  }else fb();
+  function fb(){navigator.clipboard.writeText(text).then(()=>toast('텍스트로 복사했습니다')).catch(()=>toast('복사하지 못했습니다'));}
+}
+function dlWord(){
+  const accent=M()==='plan'?'#5B3E8E':'#1F6E63', soft=M()==='plan'?'#EFE9F7':'#E4F1EE';
+  const css=`
+    body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:10.5pt;color:#1B2430;line-height:1.7}
+    .doc-kicker{font-size:9.5pt;color:${accent};font-weight:bold;margin:0 0 4pt}
+    .doc-title{font-size:19pt;font-weight:bold;margin:0 0 3pt;line-height:1.25}
+    .doc-sub{font-size:11pt;color:#4A5765;margin:0 0 10pt}
+    .doc-meta{font-size:9pt;color:#7E8A97;border-top:1.5pt solid ${accent};border-bottom:.5pt solid #D7DDE4;padding:5pt 0;margin-bottom:12pt}
+    .doc-meta span{margin-right:16pt}
+    h2.dh{font-size:12.5pt;font-weight:bold;margin:18pt 0 7pt;padding-bottom:4pt;border-bottom:1pt solid #1B2430}
+    h3.dh3{font-size:10.5pt;font-weight:bold;margin:12pt 0 5pt}
+    h4.dh4{font-size:10pt;font-weight:bold;margin:9pt 0 4pt;color:#4A5765}
+    table{border-collapse:collapse;width:100%;font-size:9.5pt;margin:3pt 0 5pt}
+    th{background:${soft};border:.5pt solid #B0B8C1;padding:4pt 6pt;text-align:left;font-weight:bold}
+    td{border:.5pt solid #B0B8C1;padding:4pt 6pt;vertical-align:top}
+    td.n{text-align:right} tr.total td{background:${soft};font-weight:bold}
+    .cap{display:block;font-size:8pt;color:#7E8A97}
+    .unit{text-align:right;font-size:8.5pt;color:#7E8A97;margin:0 0 2pt}
+    .callout{border-left:3pt solid ${accent};background:#FAFAFC;padding:6pt 9pt;font-size:9.5pt;color:#4A5765}
+    .invite{border:.5pt solid #D7DDE4;background:#F8F8FB;padding:12pt 14pt;font-size:10pt;line-height:1.8}
+    .empty{color:#B4BDC6}
+    ul,ol{margin:0 0 5pt;padding-left:16pt} li{margin-bottom:2pt}
+  `;
+  /* 태그 문자열은 '<' 를 분리해 조립한다. 일부 모바일 뷰어가 스크립트 안의
+     태그·주석을 실제 마크업으로 오해해 스크립트를 끊어버리기 때문. */
+  const L='<';
+  const html=L+'html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+   +L+'head>'+L+'meta charset="utf-8">'+L+'title>'+esc(C().title)+L+'/title>'
+   +L+'style>@page{size:21cm 29.7cm;margin:2cm 1.8cm}'+css+L+'/style>'
+   +L+'/head>'+L+'body>'+document.getElementById('sheet').innerHTML+L+'/body>'+L+'/html>';
+  const url=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=fname('doc');a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('워드 파일을 내려받았습니다');
+}
+
+pane('form');
+load();
+</script>
