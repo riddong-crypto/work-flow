@@ -241,7 +241,8 @@
     <button class="btn" onclick="document.getElementById('fin').click()">불러오기</button>
     <button class="btn" onclick="copyDoc()">문서 복사</button>
     <button class="btn" onclick="dlWord()">워드로 저장</button>
-    <button class="btn danger" onclick="resetAll()">기본값</button>
+    <button class="btn danger" onclick="clearAll()">초기화</button>
+    <button class="btn" onclick="resetAll()">예시 채우기</button>
     <button class="btn pri" onclick="window.print()">인쇄 / PDF</button>
   </div>
   <input type="file" id="fin" accept=".json,application/json" style="display:none" onchange="loadFile(this)">
@@ -307,6 +308,7 @@ function seed(){return {
   tab:'plan', mode:'plan',
 
   common:{
+    category:"event",
     kicker:"2026 마포돌봄캠퍼스 전문가 과정",
     title:"돌봄통합지원법의 현재, 민간의 역할과 과제",
     target:"마포 지역돌봄회 임직원 50명 내외",
@@ -401,6 +403,106 @@ function seed(){return {
     attach:["참여자 명부 1부","강의자료 1부","진행사진 1식","만족도 조사 결과 1부"]
   }
 };}
+
+
+/* ================= 사업 유형(카테고리) ================= */
+const T=(t,cols,w,rows,extra)=>Object.assign({t,type:'table',cols,w,rows,text:'',note:''},extra||{});
+const TX=(t,note)=>({t,type:'text',cols:[],w:[],rows:[],text:'',note:note||''});
+const CATS={
+  event:{name:'포럼 · 교육 · 행사',
+    outline:['일 시','장 소','대 상','강 사','문 의','주최/주관'],
+    blocks:()=>[
+      T('프로그램',['시 간','구 분','내 용','담 당'],['17%','14%','auto','20%'],[['','','',''],['','','',''],['','','','']]),
+      T('진행계획',['일 정','구 분','내 용','담당자'],['14%','16%','auto','17%'],[['','','','']]),
+      T('참여대상(안)',['구분','기관','비고'],['22%','auto','16%'],[['','','']])]},
+  pr:{name:'홍보물 제작 · 물품구입',
+    outline:['일 자','업 체','품 목','활용대상','문 의','주최/주관'],
+    blocks:()=>[
+      T('제작·구입 내역',['품목·종류','규격','수량','용도'],['26%','auto','14%','24%'],[['','','',''],['','','','']]),
+      TX('홍보물 원고','홍보물을 제작하는 경우, 실린 제목·본문 문구를 그대로 입력합니다. 물품구입이면 이 항목은 삭제하세요.'),
+      T('진행계획',['일 정','구 분','내 용','담당자'],['14%','16%','auto','17%'],[['','제작·구입','',''],['','배포·납품','',''],['','결과보고','','']]),
+      T('배포·활용 계획',['구 분','내 용'],['22%','auto'],[['배포·사용처',''],['배포·사용 방법',''],['활용 시기','']])]},
+  consult:{name:'컨설팅',
+    outline:['기 간','컨설팅기관','컨설팅 분야','대 상','문 의','주최/주관'],
+    blocks:()=>[
+      T('과업 범위',['구 분','내 용'],['22%','auto'],[['컨설팅 목표',''],['주요 과업',''],['제외 범위','']]),
+      T('진행 단계·일정',['일 정','단 계','내 용','담당자'],['16%','16%','auto','17%'],[['','착수·진단','',''],['','실행·자문','',''],['','결과 정리','','']]),
+      T('컨설턴트 정보',['구 분','내 용'],['22%','auto'],[['성명·소속',''],['전문분야',''],['주요 이력','']]),
+      T('산출물·활용 계획',['산출물','내 용','활용 방안'],['22%','auto','26%'],[['','','']])]}
+};
+function blockBlank(b){
+  if(b.type!=='table')return !String(b.text||'').trim();
+  const mine=JSON.stringify(b.rows||[]);
+  if(Object.values(CATS).some(t=>t.blocks().some(x=>x.t===b.t&&JSON.stringify(x.rows)===mine)))return true;
+  return (b.rows||[]).every(r=>r.slice(1).every(x=>!String(x||'').trim()));
+}
+function applyCategory(cat){
+  const tpl=CATS[cat];if(!tpl)return;
+  const c=C();
+  const allLabels=new Set(),allTitles=new Set();
+  Object.values(CATS).forEach(t=>{t.outline.forEach(l=>allLabels.add(l));t.blocks().forEach(b=>allTitles.add(b.t));});
+  /* 개요 항목: 새 유형 항목 먼저(입력값 유지), 나머지는 값이 있거나 다른 유형 기본항목이 아니면 유지 */
+  const old=c.outline||[],used=new Set();
+  const row=tpl.outline.map(l=>{const f=old.find(r=>r.k===l);if(f){used.add(f);return f;}return {k:l,v:''};});
+  const keep=old.filter(r=>!used.has(r)&&(String(r.v||'').trim()||!allLabels.has(r.k)));
+  c.outline=row.concat(keep);
+  /* 사업내용: 새 유형 항목 먼저(입력값 유지), 입력값 없는 다른 유형 기본항목만 제거 */
+  const ob=c.content||[],ub=new Set();
+  const blocks=tpl.blocks().map(nb=>{const f=ob.find(b=>b.t===nb.t);if(f){ub.add(f);return f;}return nb;});
+  const keepB=ob.filter(b=>!ub.has(b)&&!(allTitles.has(b.t)&&blockBlank(b)));
+  c.content=blocks.concat(keepB);
+}
+function setCategory(v){
+  C().category=v;applyCategory(v);render();
+  toast('“'+CATS[v].name+'” 유형으로 바꿨습니다 — 입력한 내용은 그대로 유지됩니다');
+}
+function categoryRow(){
+  const cur=C().category||'event';
+  return '<div class="row"><label>사업유형</label><select onchange="setCategory(this.value)">'
+   +Object.keys(CATS).map(k=>'<option value="'+k+'"'+(k===cur?' selected':'')+'>'+CATS[k].name+'</option>').join('')+'</select></div>'
+   +'<p class="hint" style="margin:-4px 0 10px">유형을 바꾸면 사업개요 항목명과 사업내용 기본 항목이 그 유형에 맞게 바뀝니다. 이미 입력한 내용은 지워지지 않습니다.</p>';
+}
+
+
+/* ================= 예산과목 프리셋 (2026 센터 사업계획서 기준) ================= */
+const U1='마포형 사회적경제 모델 개발',U2='사회적경제 활성화 지원',U3='사회적경제 기반조성';
+const ACCT=[
+ [U1,'사회적경제 공동사업','공동사업 시범운영'],
+ [U1,'사회적경제 공동사업','공동사업단 구성 및 운영'],
+ [U1,'사회적경제 현황조사','사회적경제 현황조사 및 분석'],
+ [U2,'주체발굴 및 성장지원','주체발굴'],
+ [U2,'주체발굴 및 성장지원','성장지원'],
+ [U2,'홍보 및 판로지원','홍보지원'],
+ [U2,'홍보 및 판로지원','판로지원'],
+ [U3,'사회적경제 기념행사','사회적경제 기념행사'],
+ [U3,'주민참여 이벤트','주민참여 이벤트']];
+/* 이미 저장된 값 앞의 번호("1.", "1-1." 등)는 표시할 때 제거 */
+function noNum(v){return String(v==null?'':v).replace(/^\s*\d+(?:-\d+)*\.?\s+/,'');}
+function applyAcct(i){
+  if(i==='')return;const a=ACCT[+i];if(!a)return;
+  const c=C().account;c.src=c.src||'보조금';c.gwan=c.gwan||'사업비';
+  c.hang=a[0];c.mok=a[1];c.semok=a[2];
+  render();
+  toast('예산과목을 채웠습니다 — '+a[2]);
+}
+
+/* 문서 맨 윗줄: 예산과목(항 - 목 (세목))에서 자동 구성 */
+function acctLine(){
+  const a=C().account||{},t=x=>String(x==null?'':x).trim();
+  const head=[noNum(t(a.hang)),noNum(t(a.mok))].filter(Boolean).join(' - ');
+  const se=noNum(t(a.semok));
+  return head+(se?(head?' ':'')+'('+se+')':'');
+}
+/* 제목줄: 세부사업명 - 사업명 */
+function titleLine(){
+  const m=C(),t=x=>String(x==null?'':x).trim();
+  return [t(m.kicker),t(m.title)].filter(Boolean).join(' - ');
+}
+function acctPicker(){
+  return '<div class="row"><label>계획서 과목</label><select onchange="applyAcct(this.value)"><option value="">2026 사업계획서에서 선택…</option>'
+   +ACCT.map((a,i)=>'<option value="'+i+'">'+esc(a[1]+' › '+a[2])+'</option>').join('')+'</select></div>'
+   +'<p class="hint" style="margin:-4px 0 10px">고르면 항·목·세목이 채워지고, 문서 맨 윗줄에 ‘항 - 목 (세목)’으로 표시됩니다. 채운 뒤 직접 고칠 수 있어요.</p>';
+}
 
 let S = seed();
 const KEY='mapo:docs:v3';
@@ -558,11 +660,18 @@ function renderForm(){
     S.tab==='common' ? commonForm() : S.tab==='plan' ? planForm() : reportForm();
 }
 
+function overviewBody(){
+  return '<h4 class="fl">추진배경</h4>'+listEditor('common.background','추진배경을 한 문장으로 입력')
+   +'<h4 class="fl">목 적</h4>'+listEditor('common.purpose','목적을 한 문장으로 입력')
+   +'<h4 class="fl">개 요<span class="hint" style="margin:0">일시·장소·대상 등 항목별로 입력</span></h4>'
+   +tableEditor('common.outline',[{t:'항목',k:'k',w:'26%'},{t:'내용',k:'v',w:'auto'}]);
+}
 function commonForm(){
   let h='<div class="notice"><b>여기서 입력한 내용은 두 문서에 함께 들어갑니다.</b> 어느 쪽에서 고치든 같은 값이 유지됩니다.</div>';
   h+=card('공통','사업 기본정보','문서 머리말',
-    '<div class="row"><label>세부사업명</label>'+inp('common.kicker','예) 2026 마포돌봄캠퍼스 전문가 과정')+'</div>'
-   +'<div class="row"><label>사업명</label>'+inp('common.title','문서 제목이 되는 사업명')+'</div>'
+    categoryRow()+'<div class="row"><label>세부사업명</label>'+inp('common.kicker','예) 공동사업단 전문교육')+'</div>'
+   +'<div class="row"><label>사업명</label>'+inp('common.title','예) 마포구 통합돌봄 공동사업단 임직원 전문교육')+'</div>'
+   +'<p class="hint" style="margin:-4px 0 10px">문서 제목은 ‘세부사업명 - 사업명’으로, 그 위 작은 줄은 예산과목(항 - 목 (세목))으로 자동 표시됩니다. 예산과목은 아래 [예산과목] 카드에서 고르세요.</p>'
    +'<div class="row"><label>지원대상</label>'+inp('common.target','예) 마포 지역돌봄회 임직원 50명 내외')+'</div>'
    +'<div class="row"><label>사업기간</label>'+inp('common.period','예) 2026.08.20. ~ 2026.09.23.')+'</div>'
    +'<div class="grid2"><div class="row" style="grid-template-columns:64px 1fr"><label>담당자</label>'+inp('common.writer')+'</div>'
@@ -574,7 +683,7 @@ function commonForm(){
    +'<h4 class="fl">개 요<span class="hint" style="margin:0">일시·장소·대상 등 항목별로 입력</span></h4>'
    +tableEditor('common.outline',[{t:'항목',k:'k',w:'26%'},{t:'내용',k:'v',w:'auto'}]));
   h+=card('공통','예산과목','계획서·결과보고서 공용',
-    '<div class="grid2">'+['src|세출원','gwan|관','hang|항','mok|목','semok|세목'].map(x=>{const[k,l]=x.split('|');
+    acctPicker()+'<div class="grid2">'+['src|세출원','gwan|관','hang|항','mok|목','semok|세목'].map(x=>{const[k,l]=x.split('|');
       return '<div class="row" style="grid-template-columns:52px 1fr"><label>'+l+'</label>'+inp('common.account.'+k)+'</div>';}).join('')+'</div>');
   h+=card('공통','예산 · 평가지표 · 성과물','계획과 실적을 한 표에서',
     '<p class="hint">이 세 가지는 계획 값과 실적 값을 같은 표에 담습니다. 계획서 탭에서는 계획 값만, 결과보고서 탭에서는 실적까지 편집됩니다.</p>'
@@ -594,10 +703,9 @@ function toggleInvite(on){S.plan.showInvite=on;render();
 
 function planForm(){
   let n=0;const N=()=>String(++n);
-  let h='<div class="notice">사업명·기간·배경·목적·개요는 <b>공통 정보</b> 탭에서 관리합니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
-  h+=card(N(),'사업개요','개요 '+SHARED,
-    '<p class="hint">추진배경과 목적은 공통 정보 탭에서 입력합니다. 개요 표는 결과보고서에도 그대로 들어갑니다.</p>'
-   +'<h4 class="fl">개요</h4>'+tableEditor('common.outline',[{t:'항목',k:'k',w:'26%'},{t:'내용',k:'v',w:'auto'}]));
+  let h='<div class="notice">사업명·기간 등 기본정보는 <b>공통 정보</b> 탭에서 관리합니다. 사업개요는 아래에서도 입력할 수 있습니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  h+=card(N(),'사업개요','추진배경 · 목적 · 개요 '+SHARED,
+    '<p class="hint">공통 정보 탭과 같은 값입니다. 어느 쪽에서 고쳐도 계획서·결과보고서에 함께 반영됩니다.</p>'+overviewBody());
   h+=card(N(),'사업내용 및 추진방법','형식 자유 구성 '+SHARED,
     '<p class="hint">항목마다 제목과 형식(표·목록·서술)을 정할 수 있습니다. 결과보고서가 이 내용을 물려받습니다. 서술형은 Enter가 새 문단, 표 칸의 Enter는 줄바꿈입니다.</p>'
    +contentEditor('common.content'));
@@ -623,34 +731,36 @@ function planForm(){
 }
 
 function reportForm(){
-  let h='<div class="notice">사업명·기간·배경·목적·개요는 <b>공통 정보</b> 탭에서 관리합니다. 계획서에 쓴 값이 그대로 들어옵니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  let h='<div class="notice">사업명·기간 등 기본정보는 <b>공통 정보</b> 탭에서 관리합니다. 사업개요는 계획서에 쓴 값이 그대로 들어오며 아래에서도 고칠 수 있습니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
   const linked=S.report.linked;
-  h+=card('1','사업내용 및 추진방법',(linked?'계획서와 연동됨':'실적으로 수정 중'),
+  h+=card('1','사업개요','추진배경 · 목적 · 개요 '+SHARED,
+    '<p class="hint">계획서·공통 정보 탭의 값을 그대로 불러온 것입니다. 여기서 고쳐도 같은 값이 유지됩니다.</p>'+overviewBody());
+  h+=card('2','사업내용 및 추진방법',(linked?'계획서와 연동됨':'실적으로 수정 중'),
     '<div class="notice" style="margin-bottom:10px">'
     +(linked
       ? '계획서에 쓴 사업내용을 그대로 사용합니다. 실제 진행이 달라졌다면 여기서 갈라놓으세요. <button class="btn sm" onclick="unlink()">실적으로 수정</button>'
       : '계획서와 분리되어 있습니다. 여기서 고쳐도 계획서는 바뀌지 않습니다. <button class="btn sm" onclick="relink()">계획서와 다시 연동</button>')
     +'</div>'+contentEditor(repPath(),!linked));
-  h+=card('2','사업성과','형식 자유 구성',
+  h+=card('3','사업성과','형식 자유 구성',
     '<div class="notice" style="margin-bottom:10px">항목마다 형식(표·목록·서술)을 정할 수 있습니다. 사업내용을 뼈대로 삼으려면 가져와서 실적 중심으로 고쳐 쓰세요. '
    +'<button class="btn sm" onclick="pullToResults()">사업내용 가져오기</button></div>'
    +contentEditor('report.results',false,'사업성과'));
-  h+=card('3','추진실적','평가지표 실적 '+SHARED,
+  h+=card('4','추진실적','평가지표 실적 '+SHARED,
     '<div class="row"><label>세부사업</label>'+inp('report.perf.sub')+'</div>'
    +'<div class="row"><label>추진내용</label>'+inp('report.perf.act')+'</div>'
    +'<h4 class="fl">평가지표 실적<span class="hint" style="margin:0">목표는 계획서에서 옵니다</span></h4>'
    +tableEditor('common.kpi',[{t:'측정방법 및 도구',k:'b',w:'auto',multi:true},{t:'목표',k:'c',w:'22%'},{t:'실적',k:'d',w:'22%',ph:'실적'}])
    +'<h4 class="fl">정성적 평가</h4>'+listEditor('report.perf.qual','정성적 평가를 한 문장으로 입력'));
-  h+=card('4','소요예산','결산 입력 '+SHARED,
+  h+=card('5','소요예산','결산 입력 '+SHARED,
     '<p class="hint">예산 줄은 계획서에서 넘어온 값입니다. 결산 줄만 채우면 집행율이 자동 계산됩니다.</p>'
    +budgetEditor(true)
    +'<div class="sum"><span>합계</span><b id="bsum">예산 '+won(totalP())+'원 · 집행 '+won(totalA())+'원 · 집행율 '+execRate()+'%</b></div>');
-  h+=card('5','사업성과물 목록','실제수량 '+SHARED,
+  h+=card('6','사업성과물 목록','실제수량 '+SHARED,
     tableEditor('common.outputs',[{t:'자료유형',k:'a',w:'18%'},{t:'성과물 명칭',k:'b',w:'auto'},{t:'계획',k:'c',w:'12%'},{t:'실제',k:'d',w:'12%',ph:'실제'},{t:'비고',k:'e',w:'16%'}]));
-  h+=card('6','사업총평 및 제언사항','결과보고서 전용',
+  h+=card('7','사업총평 및 제언사항','결과보고서 전용',
     '<h4 class="fl">총평</h4>'+listEditor('report.review','총평을 한 문장으로 입력')
    +'<h4 class="fl">제언사항</h4>'+listEditor('report.suggest','제언사항을 한 문장으로 입력'));
-  h+=card('7','붙임서류','결과보고서 전용',listEditor('report.attach','붙임서류를 한 줄씩 입력'));
+  h+=card('8','붙임서류','결과보고서 전용',listEditor('report.attach','붙임서류를 한 줄씩 입력'));
   return h;
 }
 
@@ -687,8 +797,8 @@ function contentDoc(blocks,ph){
 }
 function docHead(sub,scaleCells){
   const m=C();
-  return '<p class="doc-kicker">'+val(m.kicker,'세부사업명')+'</p>'
-   +'<h1 class="doc-title">'+val(m.title,'사업명을 입력하세요')+'</h1>'
+  return '<p class="doc-kicker">'+val(acctLine(),'예산과목을 선택하세요')+'</p>'
+   +'<h1 class="doc-title">'+val(titleLine(),'세부사업명 - 사업명을 입력하세요')+'</h1>'
    +'<p class="doc-sub">'+sub+'</p>'
    +'<div class="doc-meta"><span>작성일 '+val(m.writeDate,'-')+'</span><span>'+(M()==='plan'?'작성자':'담당자')+' '+val(m.writer,'-')+'</span><span>'+val(m.org,'-')+'</span></div>'
    +'<div class="tblwrap" style="margin-bottom:28px"><table class="doc"><tbody>'
@@ -707,9 +817,7 @@ function planDoc(){
   h+='<h3 class="dh3">개요</h3><ol class="d">'+(m.outline||[]).map(r=>'<li><b>'+esc(r.k)+'</b> : '+nl(r.v)+'</li>').join('')+'</ol>';
   h+=H('사업내용 및 추진방법')+contentDoc(m.content);
   h+=H('사업예산')+'<h3 class="dh3">예산과목</h3><p class="unit">(단위:원)</p>';
-  const a=m.account;
-  h+='<div class="tblwrap"><table class="doc"><thead><tr><th>세출원</th><th>관</th><th>항</th><th>목</th><th>세목</th><th>금액</th></tr></thead><tbody><tr>'
-   +'<td>'+nl(a.src)+'</td><td>'+nl(a.gwan)+'</td><td>'+nl(a.hang)+'</td><td>'+nl(a.mok)+'</td><td>'+nl(a.semok)+'</td><td class="n">'+won(totalP())+'</td></tr></tbody></table></div>';
+  h+=acctTable(m.account,totalP());
   h+='<h3 class="dh3">세부예산내역</h3><p class="unit">(단위:원)</p>';
   h+='<div class="tblwrap"><table class="doc"><thead><tr><th style="width:24%">내역</th><th style="width:16%">금액</th><th>산출근거</th><th style="width:22%">비고</th></tr></thead><tbody>';
   (m.budget||[]).forEach(r=>{const c=calcCell(r.pl);
@@ -721,6 +829,12 @@ function planDoc(){
   h+='<h3 class="dh3">예상 성과물</h3>'+docTable(m.outputs,[{t:'번호',k:'#'},{t:'자료유형',k:'a'},{t:'성과물 명칭',k:'b'},{t:'수량',k:'c'}],['8%','20%','auto','14%']);
   h+='<h3 class="dh3">기대효과</h3>'+ulList(d.effects,'기대효과를 입력하세요');
   return h;
+}
+
+function acctTable(a,amt){
+  a=a||{};
+  return '<div class="tblwrap"><table class="doc"><thead><tr><th>세출원</th><th>관</th><th>항</th><th>목</th><th>세목</th><th>금액</th></tr></thead><tbody><tr>'
+   +'<td>'+nl(noNum(a.src))+'</td><td>'+nl(noNum(a.gwan))+'</td><td>'+nl(noNum(a.hang))+'</td><td>'+nl(noNum(a.mok))+'</td><td>'+nl(noNum(a.semok))+'</td><td class="n">'+won(amt)+'</td></tr></tbody></table></div>';
 }
 
 function reportDoc(){
@@ -740,7 +854,9 @@ function reportDoc(){
   h+='<h4 class="dh4">정량적 평가</h4>'
    +docTable(m.kpi,[{t:'구분',k:'a'},{t:'측정방법 및 도구',k:'b'},{t:'목표',k:'c'},{t:'실적',k:'d'}],['12%','auto','18%','18%']);
   h+='<h4 class="dh4">정성적 평가</h4>'+ulList(d.perf.qual,'정성적 평가를 입력하세요');
-  h+='<h2 class="dh">소요예산</h2><p class="unit">(단위:원)</p>';
+  h+='<h2 class="dh">소요예산</h2><h3 class="dh3">예산과목</h3><p class="unit">(단위:원)</p>';
+  h+=acctTable(m.account,totalP());
+  h+='<h3 class="dh3">세부예산내역</h3><p class="unit">(단위:원)</p>';
   h+='<div class="tblwrap"><table class="doc"><thead><tr><th style="width:20%">과목</th><th style="width:12%">예산</th><th>산출근거</th><th style="width:12%">결산</th><th>산출근거</th></tr></thead><tbody>';
   const rows=m.budget||[];
   rows.forEach(r=>{const p=calcCell(r.pl),ac=calcCell(r.ac);
@@ -853,9 +969,31 @@ async function load(){
   render._quiet=true;render();render._quiet=false;
   dirty=false;updateStatus();
 }
+/* 새 사업 시작용: 입력값을 모두 비우고, 현재 사업유형의 기본 항목만 남긴다 */
+function blankDoc(cat){
+  const d=seed(),t=new Date();
+  d.common=Object.assign({},d.common,{
+    category:cat,kicker:'',title:'',target:'',period:'',writer:'',
+    writeDate:t.getFullYear()+'. '+(t.getMonth()+1)+'. '+t.getDate(),
+    background:[],purpose:[],outline:[],content:[],
+    account:{src:'보조금',gwan:'사업비',hang:'',mok:'',semok:''},
+    budget:[],kpi:[],outputs:[]});
+  d.plan={showInvite:true,invite:'',effects:[]};
+  d.report={linked:true,content:[],results:[],perf:{sub:'',act:'',qual:[]},review:[],suggest:[],attach:[]};
+  return d;
+}
+function clearAll(){
+  const cat=C().category||'event';
+  if(!confirm('작성한 내용을 모두 지우고 빈 양식으로 시작합니다.\n(사업유형 “'+CATS[cat].name+'”의 기본 항목만 남습니다)\n\n지금 내용을 보관하려면 먼저 [사업파일 저장]을 하세요. 계속할까요?'))return;
+  const t=S.tab;S=blankDoc(cat);S.tab=t;if(t!=='common')S.mode=t;
+  applyCategory(cat);
+  document.body.classList.toggle('report',M()==='report');
+  dirty=false;savedAt='';render();dirty=false;updateStatus();stash();
+  window.scrollTo(0,0);toast('초기화했습니다 — 빈 양식으로 시작하세요');
+}
 function resetAll(){
-  if(!confirm('공통 정보를 포함해 모두 처음 기본값으로 되돌립니다. 계속할까요?'))return;
-  const t=S.tab;S=seed();S.tab=t;if(t!=='common')S.mode=t;render();stash();toast('기본값으로 되돌렸습니다');
+  if(!confirm('예시 내용(돌봄통합지원법 교육)으로 채웁니다. 지금 내용은 사라집니다. 계속할까요?'))return;
+  const t=S.tab;S=seed();S.tab=t;if(t!=='common')S.mode=t;render();stash();toast('예시 내용으로 채웠습니다');
 }
 function fname(ext){
   const t=(M()==='plan'?'사업계획서':'결과보고서');
