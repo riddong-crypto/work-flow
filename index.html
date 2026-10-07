@@ -93,6 +93,16 @@
   .colh{display:flex;gap:2px;align-items:center}
   .colh input{padding:5px 6px;font-size:11.5px;font-weight:600;background:#F5F7F9}
   .colh .del{font-size:12px;padding:3px}
+  .colh{flex-wrap:wrap}
+  .colh input{flex:1 1 100%;min-width:0}
+  .colops{display:flex;gap:1px}
+  .ins{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:11px;line-height:1;padding:5px 4px;border-radius:4px;white-space:nowrap}
+  .ins:hover{color:var(--ink);background:#EDF0F3}
+  td.rowops{white-space:nowrap;width:76px;vertical-align:top}
+  td.rowops .del,td.rowops .ins{padding:6px 3px}
+  .smp{border:1px solid var(--line);background:#fff;color:var(--ink-2);cursor:pointer;font-size:11.5px;padding:4px 8px;border-radius:12px;white-space:nowrap}
+  .smp:hover{background:#F5F7F9;color:var(--ink)}
+  .smprow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;color:var(--ink-3)}
   .badge{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
   .badge.same{background:#EEF1F4;color:var(--ink-3)}
   .badge.diff{background:var(--accent-soft);color:var(--accent)}
@@ -156,6 +166,8 @@
     .btn,.seg button{padding:11px 14px;font-size:13.5px}
     .btn.sm{padding:9px 12px;font-size:12.5px}
     .del{min-width:40px;min-height:40px;font-size:19px}
+    .ins{min-width:34px;min-height:40px;font-size:13px}
+    td.rowops{width:140px}
     .add{padding:12px;font-size:13.5px}
     .chk{padding:6px 2px}
     .chk input{width:20px;height:20px}
@@ -516,6 +528,7 @@ function set(path,v){const p=path.split('.');let o=S;for(let i=0;i<p.length-1;i+
 function get(path){return path.split('.').reduce((o,k)=>o?.[k],S);}
 function addRow(arr,obj){get(arr).push(typeof obj==='object'?cp(obj):obj);render();}
 function delRow(arr,i){get(arr).splice(i,1);render();}
+function insRow(arr,i){const a=get(arr),ref=a[Math.min(i,a.length-1)]||{};const o={};Object.keys(ref).forEach(k=>o[k]=typeof ref[k]==='string'?'':ref[k]);a.splice(i,0,o);render();}
 function setTab(t){S.tab=t;if(t!=='common')S.mode=t;document.body.classList.toggle('report',M()==='report');render();window.scrollTo(0,0);}
 
 function repContent(){return S.report.linked ? C().content : S.report.content;}
@@ -550,13 +563,13 @@ function tableEditor(arr,cols){
   const a=get(arr)||[];
   let h='<div class="tblwrap"><table class="edit"><thead><tr>';
   cols.forEach(c=>h+='<th style="width:'+c.w+'">'+esc(c.t)+'</th>');
-  h+='<th style="width:26px"></th></tr></thead><tbody>';
+  h+='<th style="width:76px"></th></tr></thead><tbody>';
   a.forEach((row,i)=>{
     h+='<tr>';
     cols.forEach(c=>{const p=arr+'.'+i+'.'+c.k;
       h+='<td>'+(c.multi?'<textarea rows="2" oninput="set(\''+p+'\',this.value)">'+esc(row[c.k]??'')+'</textarea>'
         :'<input type="text" value="'+esc(row[c.k]??'')+'" placeholder="'+esc(c.ph||'')+'" oninput="set(\''+p+'\',this.value)">')+'</td>';});
-    h+='<td><button class="del" onclick="delRow(\''+arr+'\','+i+')">×</button></td></tr>';
+    h+='<td class="rowops"><button class="ins" title="위에 행 삽입" onclick="insRow(\''+arr+'\','+i+')">↑+</button><button class="ins" title="아래에 행 삽입" onclick="insRow(\''+arr+'\','+(i+1)+')">↓+</button><button class="del" title="행 삭제" onclick="delRow(\''+arr+'\','+i+')">×</button></td></tr>';
   });
   h+='</tbody></table></div>';
   const blank={};cols.forEach(c=>blank[c.k]='');
@@ -576,6 +589,27 @@ function addCol(p,i){const b=get(p)[i];b.cols.push('');b.w.push('auto');b.rows.f
 function delCol(p,i,c){const b=get(p)[i];if(b.cols.length<=1){toast('열은 하나 이상 필요합니다');return;}b.cols.splice(c,1);b.w.splice(c,1);b.rows.forEach(r=>r.splice(c,1));render();}
 function addBRow(p,i){const b=get(p)[i];b.rows.push(new Array(b.cols.length).fill(''));render();}
 function delBRow(p,i,r){get(p)[i].rows.splice(r,1);render();}
+function insBRow(p,i,r){const b=get(p)[i];b.rows.splice(r,0,new Array(b.cols.length).fill(''));render();}
+function insCol(p,i,c){const b=get(p)[i];b.cols.splice(c,0,'');b.w.splice(c,0,'auto');b.rows.forEach(r=>r.splice(c,0,''));render();}
+/* 초기 예시(처음 화면에 들어 있던 표)를 도구창에서 다시 불러오기 */
+function sampleFor(title){
+  const nm=x=>String(x||'').replace(/\s+/g,'');
+  const blocks=seed().common.content||[];
+  let sm=blocks.find(b=>nm(b.t)===nm(title));
+  if(!sm&&/^(진행계획|진행단계·?일정|추진일정|진행일정)$/.test(nm(title)))sm=blocks.find(b=>nm(b.t)==='진행계획');
+  return sm||null;
+}
+function loadSample(p,i){
+  const b=get(p)[i],sm=sampleFor(b.t);if(!sm)return;
+  if(!blockBlank(b)&&!confirm('“'+(b.t||'이 표')+'”의 지금 내용이 초기 예시로 바뀝니다.\n계속할까요? (불러온 뒤에도 자유롭게 수정할 수 있습니다)'))return;
+  b.type='table';b.cols=cp(sm.cols);b.w=cp(sm.w);b.rows=cp(sm.rows);render();
+  toast('초기 예시 “'+sm.t+'” '+sm.rows.length+'행을 불러왔습니다 — 일정과 담당자를 사업에 맞게 고쳐 주세요');
+}
+function addSample(p,title){
+  const sm=sampleFor(title);if(!sm)return;
+  get(p).push(cp(sm));render();
+  toast('초기 예시 “'+sm.t+'”를 추가했습니다 — 내용을 사업에 맞게 고쳐 주세요');
+}
 function contentEditor(p,showDiff,label){
   let h='';
   (get(p)||[]).forEach((b,i)=>{
@@ -583,24 +617,29 @@ function contentEditor(p,showDiff,label){
     h+='<div class="blk"><div class="blk-h">'
       +'<input type="text" class="blk-t" value="'+esc(b.t)+'" placeholder="항목 제목 (예: 프로그램, 주요 사업내용)" oninput="set(\''+p+'.'+i+'.t\',this.value)">'
       +(dif?'<span class="badge '+dif+'">'+(dif==='same'?'계획과 동일':'수정됨')+'</span>':'')
+      +(b.type==='table'&&sampleFor(b.t)?'<button class="smp" title="처음 화면에 들어 있던 예시 표로 채웁니다" onclick="loadSample(\''+p+'\','+i+')">예시 불러오기</button>':'')
       +'<select onchange="setType(\''+p+'\','+i+',this.value)">'+TYPES.map(t=>'<option value="'+t[0]+'"'+(b.type===t[0]?' selected':'')+'>'+t[1]+'</option>').join('')+'</select>'
       +'<button class="del" title="위로" onclick="moveBlock(\''+p+'\','+i+',-1)">↑</button>'
       +'<button class="del" title="아래로" onclick="moveBlock(\''+p+'\','+i+',1)">↓</button>'
       +'<button class="del" title="삭제" onclick="delBlock(\''+p+'\','+i+')">×</button></div>';
     if(b.type==='table'){
       h+='<div class="tblwrap"><table class="edit"><thead><tr>';
-      b.cols.forEach((c,ci)=>{h+='<th'+(b.w?.[ci]&&b.w[ci]!=='auto'?' style="width:'+b.w[ci]+'"':'')+'><div class="colh"><input type="text" value="'+esc(c)+'" placeholder="열 이름" oninput="set(\''+p+'.'+i+'.cols.'+ci+'\',this.value)"><button class="del" onclick="delCol(\''+p+'\','+i+','+ci+')">×</button></div></th>';});
-      h+='<th style="width:26px"></th></tr></thead><tbody>';
+      b.cols.forEach((c,ci)=>{h+='<th'+(b.w?.[ci]&&b.w[ci]!=='auto'?' style="width:'+b.w[ci]+'"':'')+'><div class="colh"><input type="text" value="'+esc(c)+'" placeholder="열 이름" oninput="set(\''+p+'.'+i+'.cols.'+ci+'\',this.value)"><div class="colops"><button class="ins" title="이 열의 왼쪽에 열 삽입" onclick="insCol(\''+p+'\','+i+','+ci+')">‹+</button><button class="ins" title="이 열의 오른쪽에 열 삽입" onclick="insCol(\''+p+'\','+i+','+(ci+1)+')">+›</button><button class="del" title="열 삭제" onclick="delCol(\''+p+'\','+i+','+ci+')">×</button></div></div></th>';});
+      h+='<th style="width:76px"></th></tr></thead><tbody>';
       b.rows.forEach((row,ri)=>{h+='<tr>';
         b.cols.forEach((_,ci)=>h+='<td><textarea rows="2" oninput="set(\''+p+'.'+i+'.rows.'+ri+'.'+ci+'\',this.value)">'+esc(row[ci]??'')+'</textarea></td>');
-        h+='<td><button class="del" onclick="delBRow(\''+p+'\','+i+','+ri+')">×</button></td></tr>';});
+        h+='<td class="rowops"><button class="ins" title="위에 행 삽입" onclick="insBRow(\''+p+'\','+i+','+ri+')">↑+</button><button class="ins" title="아래에 행 삽입" onclick="insBRow(\''+p+'\','+i+','+(ri+1)+')">↓+</button><button class="del" title="행 삭제" onclick="delBRow(\''+p+'\','+i+','+ri+')">×</button></td></tr>';});
       h+='</tbody></table></div><div class="btn2"><button class="add" onclick="addBRow(\''+p+'\','+i+')">+ 행 추가</button><button class="add" onclick="addCol(\''+p+'\','+i+')">+ 열 추가</button></div>';
     }else{
       h+='<textarea rows="6" placeholder="'+(b.type==='list'?'한 줄에 한 항목씩 입력':'문단으로 입력')+'" oninput="set(\''+p+'.'+i+'.text\',this.value)">'+esc(b.text||'')+'</textarea>';
     }
     h+='<textarea rows="2" style="margin-top:7px" placeholder="비고 (비우면 문서에서 숨김)" oninput="set(\''+p+'.'+i+'.note\',this.value)">'+esc(b.note||'')+'</textarea></div>';
   });
-  return h+'<button class="add" onclick="addBlock(\''+p+'\')">+ '+(label||'사업내용')+' 항목 추가</button>';
+  h+='<button class="add" onclick="addBlock(\''+p+'\')">+ '+(label||'사업내용')+' 항목 추가</button>';
+  const have=(get(p)||[]).map(b=>String(b.t||'').replace(/\s+/g,''));
+  const miss=(seed().common.content||[]).filter(b=>b.type==='table'&&!have.includes(String(b.t).replace(/\s+/g,'')));
+  if(miss.length)h+='<div class="smprow"><span>초기 예시 추가:</span>'+miss.map(b=>'<button class="smp" onclick="addSample(\''+p+'\',\''+String(b.t).replace(/'/g,"\\'")+'\')">'+esc(b.t)+'</button>').join('')+'</div>';
+  return h;
 }
 
 const UNITS=['명','시간','회','부','식','개','일','건','매','팀','권','대'];
@@ -707,9 +746,15 @@ function commonForm(){
 function toggleInvite(on){S.plan.showInvite=on;render();
   toast(on?'홍보물 항목을 문서에 넣습니다':'홍보물 항목을 문서에서 뺐습니다');}
 
+function dateRow(which){
+  const plan=which==='plan';
+  return '<div class="row" style="grid-template-columns:110px 1fr;margin-bottom:6px"><label>'+(plan?'계획서 작성일':'결과보고서 작성일')+'</label>'+inp(plan?'common.writeDate':'common.reportDate',plan?'예) 2026. 8. 20':'예) 2026. 9. 23')+'</div>'
+   +(sameWriteDate()?'<p class="hint" style="margin:0 0 10px;color:#C0392B">⚠ 계획서와 결과보고서의 작성일이 같습니다. '+(plan?'계획서를 작성한 날짜인지 확인해 주세요.':'보고서를 작성한 날짜로 바꿔 주세요.')+'</p>':'<p class="hint" style="margin:0 0 10px">이 날짜는 '+(plan?'계획서':'결과보고서')+'에만 표시됩니다. '+(plan?'결과보고서':'계획서')+' 작성일은 따로 입력합니다.</p>');
+}
 function planForm(){
   let n=0;const N=()=>String(++n);
   let h='<div class="notice">사업명·기간 등 기본정보는 <b>공통 정보</b> 탭에서 관리합니다. 사업개요는 아래에서도 입력할 수 있습니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  h+=dateRow('plan');
   h+=card(N(),'사업개요','추진배경 · 목적 · 개요 '+SHARED,
     '<p class="hint">공통 정보 탭과 같은 값입니다. 어느 쪽에서 고쳐도 계획서·결과보고서에 함께 반영됩니다.</p>'+overviewBody());
   h+=card(N(),'사업내용 및 추진방법','형식 자유 구성 '+SHARED,
@@ -738,6 +783,7 @@ function planForm(){
 
 function reportForm(){
   let h='<div class="notice">사업명·기간 등 기본정보는 <b>공통 정보</b> 탭에서 관리합니다. 사업개요는 계획서에 쓴 값이 그대로 들어오며 아래에서도 고칠 수 있습니다. <button class="btn sm" onclick="setTab(\'common\')">공통 정보 열기</button></div>';
+  h+=dateRow('report');
   const linked=S.report.linked;
   h+=card('1','사업개요','추진배경 · 목적 · 개요 '+SHARED,
     '<p class="hint">계획서·공통 정보 탭의 값을 그대로 불러온 것입니다. 여기서 고쳐도 같은 값이 유지됩니다.</p>'+overviewBody());
@@ -951,7 +997,7 @@ const IMP_SEC=[
   ['purpose',/^(사업)?(목적|목표|추진목적|추진목표)$/],
   ['overview',/^(사업)?개요$/],
   ['program',/^(프로그램|세부프로그램|진행프로그램|세부내용|운영내용|사업내용|추진내용|추진방법|사업내용및추진방법|주요내용|제작내역|구입내역|제작·구입내역|과업범위|주요과업)$/],
-  ['schedule',/^(추진일정|진행계획|진행일정|추진계획|일정|세부일정|진행단계·일정|진행단계)$/],
+  ['schedule',/^(추진일정|진행계획|진행일정|추진계획|일정|세부일정|진행단계·일정|진행단계|(세부|사업|상세|전체|주요|향후)?(추진|진행|운영)?(일정|스케줄)(표|계획)?|(세부|사업|상세|전체)?(추진|진행|운영)(계획|일정)(표|안)?|일정계획|추진스케줄)$/],
   ['target',/^(참여대상(\(안\))?|참가대상|참여기관)$/],
   ['budget',/^(소요예산|사업예산|예산|사업비|예산내역|예산계획|소요비용|예산안)$/],
   ['effect',/^(기대효과|기대성과|예상성과|기대효과및평가지표)$/],
@@ -1015,7 +1061,7 @@ function impHead(raw){
   let key=s,inl='';
   const m=s.match(/^([^:：\t]{1,20}?)\s*(?:[:：]|\t+)\s*(.*)$/);
   if(m){key=m[1];inl=m[2];}
-  const k=impNorm(key).replace(/[:：]$/,'');
+  const k=impNorm(key).replace(/[:：]$/,'').replace(/[\(（][^\)）]{0,6}[\)）]?$/,'');
   if(k.length>26||!k)return null;
   for(const [id,re] of IMP_SEC)if(re.test(k))return {id,inline:inl.trim()};
   return null;
@@ -1034,10 +1080,12 @@ function impShape(parts,n){
   return a;
 }
 const IMP_TIME=/^(\d{1,2}:\d{2})\s*(?:[~\-–—]\s*(\d{1,2}:\d{2}))?/;
-const IMP_DATE=/^((?:20\d{2}\s*[.\/]\s*)?\d{1,2}\s*[\/.]\s*\d{1,2}\.?(?:\s*\([월화수목금토일]\))?(?:\s*[~\-–]\s*(?:\d{1,2}\s*[\/.]\s*)?\d{1,2}\.?)?|\d{1,2}월\s*\d{1,2}일(?:\s*\([월화수목금토일]\))?(?:\s*[~\-–]\s*(?:\d{1,2}월\s*)?\d{1,2}일)?|\d{1,2}월\s*(?:상순|중순|하순|초|말)?)(?=\s|$|:|\t)/;
+const IMP_DATE=/^((?:20\d{2}\s*[.\/]\s*)?\d{1,2}\s*[\/.]\s*\d{1,2}\.?(?:\s*\([월화수목금토일]\))?(?:\s*[~\-–]\s*(?:\d{1,2}\s*[\/.]\s*)?\d{1,2}\.?)?|\d{1,2}월\s*\d{1,2}일(?:\s*\([월화수목금토일]\))?(?:\s*[~\-–]\s*(?:\d{1,2}월\s*)?\d{1,2}일)?|\d{1,2}월\s*(?:상순|중순|하순|초|말|[1-5]\s*주(?:차)?)?)(?=\s|$|:|\t)/;
 function impSplitTok(rest){
   rest=rest.replace(/^[\s:：\-–—]+/,'');
   const all=rest;
+  const cm=rest.match(/^([^:：\s]{1,12}(?:\s*[·및,]\s*[^:：\s]{1,9})?)\s*[:：]\s*(.+)$/);
+  if(cm)return [cm[1].trim(),cm[2].trim()];
   let m=rest.match(/^(\S{1,9})\s+(및|과|와|·|,)\s*(\S{1,9})(?:\s+(.+))?$/);
   if(m)return [m[1]+' '+m[2]+' '+m[3],(m[4]||'').replace(/^[\s:：\-–—]+/,'')];
   m=rest.match(/^(\S{1,9})\s+(.+)$/);
@@ -1190,7 +1238,7 @@ function impParse(text,forceCat){
     sec[secId].forEach(L=>{
       const parts=impCells(L);
       if(impIsHdr(parts))return;
-      const cont=!/\t/.test(L)&&/^\s*[-·•ㆍ]/.test(L);
+      const cont=!/\t/.test(L)&&/^\s*[-·•ㆍ]/.test(L)&&!(kind==='date'&&IMP_DATE.test(impStrip(L)))&&!(kind==='time'&&IMP_TIME.test(impStrip(L)));
       if(cont&&rows.length&&n>=3){const r=rows[rows.length-1],ci=Math.min(2,n-1);r[ci]=(r[ci]?r[ci]+'\n':'')+L.trim().replace(/^[·•ㆍ]/,'-');return;}
       rows.push(impRow(L,n,kind));
     });
@@ -1249,9 +1297,32 @@ function impApply(){
   toast('“'+(c.title||n)+'” 내용을 채웠습니다 — 빈 곳과 숫자를 확인해 주세요');
 }
 function impReset(){imp.res=null;imp.text='';imp.src='';imp.cat=null;renderForm();}
+const SCHED_TITLES=/^(진행계획|진행\s*단계·?\s*일정|추진일정|진행일정)$/;
+function impSchedFromPack(f){
+  const r=new FileReader();
+  r.onload=()=>{
+    let obj;try{obj=JSON.parse(r.result);}catch(e){toast('사업파일을 읽지 못했습니다');return;}
+    const d=obj&&obj.data?obj.data:obj;
+    const src=((d&&d.common&&d.common.content)||[]).find(b=>SCHED_TITLES.test(String(b.t||'').trim())&&b.rows&&b.rows.length);
+    if(!src){toast('이 사업파일에는 진행계획 표가 없습니다');return;}
+    const c=C();c.content=c.content||[];
+    let tb=c.content.find(b=>SCHED_TITLES.test(String(b.t||'').trim()));
+    if(!tb){
+      tb={t:'진행계획',type:'table',cols:['일 정','구 분','내 용','담당자'],w:['14%','16%','auto','17%'],rows:[],text:'',note:''};
+      c.content.push(tb);
+    }
+    if(!blockBlank(tb)&&!confirm('지금 문서의 진행계획 '+tb.rows.length+'행이 “'+((d.common&&d.common.title)||f.name)+'”의 '+src.rows.length+'행으로 바뀝니다.\n계속할까요? (가져온 뒤에도 자유롭게 수정할 수 있습니다)'))return;
+    tb.rows=src.rows.map(x=>impShape(x.slice(),tb.cols.length));
+    render();stash();
+    toast('진행계획 '+tb.rows.length+'행을 가져왔습니다 — 일정과 담당자를 확인해 주세요');
+  };
+  r.onerror=()=>toast('파일을 열지 못했습니다');
+  r.readAsText(f,'utf-8');
+}
 async function impFile(f){
   if(!f)return;
   const n=f.name.toLowerCase();
+  if(n.endsWith('.json')){impSchedFromPack(f);return;}
   try{
     let t='';
     if(n.endsWith('.docx'))t=await readDocx(f);
@@ -1277,7 +1348,8 @@ function impBox(){
      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:9px">'
      +'<button class="btn pri" onclick="document.getElementById(\'impf\').click()">워드 파일(.docx) 올리기</button>'
      +'<span class="hint" style="margin:0">또는 파일을 여기로 끌어다 놓기 · 텍스트(.txt)도 가능</span></div>'
-     +'<input type="file" id="impf" accept=".docx,.txt,.md,.text" style="display:none" onchange="impPick(this)">'
+     +'<p class="hint" style="margin:-2px 0 9px">저장해 둔 <b>사업파일(.json)</b>을 올리면 그 사업의 <b>진행계획 표만</b> 가져옵니다. 가져온 뒤 표에서 바로 고칠 수 있습니다.</p>'
+     +'<input type="file" id="impf" accept=".docx,.txt,.md,.text,.json" style="display:none" onchange="impPick(this)">'
      +'<textarea id="impta" rows="9" placeholder="예)\n사업명: 마포돌봄 전문가 과정\n일시: 2026년 9월 16일 15:00~17:00\n장소: ○○센터 대강당\n대상: 지역돌봄회 임직원 50명\n\n추진배경\n- …\n\n목적\n- …\n\n예산\n- 강사료: 240,000원 × 2시간 × 1명\n- 다과비: 4,000원 × 50명 × 1회" oninput="imp.text=this.value">'+esc(imp.text)+'</textarea>'
      +'<div style="margin-top:9px"><button class="btn pri" onclick="impAnalyze()">분석해서 미리보기</button></div>';
   }else{
